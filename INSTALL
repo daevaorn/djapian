@@ -1,0 +1,40 @@
+= Introduction =
+
+This page cover how to install Xapian and Xapian bindings 1.0.2 in your machine
+
+
+= Requirements =
+ * Linux (if you know how to install Xapian in Windows, let me know)
+ * wget
+ * gcc/g++ (compile only)
+ * Python shared (default in Linux, but *not* in Freebsd)
+= Install =
+
+== From source ==
+
+=== Xapian Core ===
+{{{
+wget http://www.oligarchy.co.uk/xapian/1.0.2/xapian-core-1.0.2.tar.gz
+tar -zxvf xapian-core-1.0.2.tar.gz
+cd xapian-core-1.0.2
+./configure --prefix=/usr/local/xapian-1.0.2
+make
+su
+make install
+}}}
+
+=== Xapian Bindings ===
+*Note*: You must install xapian-core before this
+{{{
+wget http://www.oligarchy.co.uk/xapian/1.0.2/xapian-bindings-1.0.2.tar.gz
+tar -zxvf xapian-bindings-1.0.2.tar.gz
+cd xapian-bindings-1.0.2
+./configure --with-python
+make
+su
+make install
+}}}
+
+== From packages ==
+There are a very good "How to install" packages in Xapian website: 
+http://xapian.org/download.php
