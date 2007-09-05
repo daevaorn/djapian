@@ -1,6 +1,13 @@
+# -*- encoding: utf-8 -*-
+import sys
+
 from django.db import models
 from django.core.exceptions import ObjectDoesNotExist
-import sys
+
+# Handle the signals of Django
+from django.db.models import signals
+from django.dispatch import dispatcher
+from djapian.signals import post_save, pre_delete
 
 # For Python 2.3
 if not hasattr(__builtins__, 'set'):
@@ -101,6 +108,7 @@ class Indexer(object):
             fields = []
         elif isinstance(fields, basestring):
             fields = [fields]
+        
         if attributes is None:
             attributes = kwargs
         else:
@@ -130,6 +138,12 @@ class Indexer(object):
         if pk not in self.text_fields and pk not in set(self.attr_fields.values()):
             self.add_field(pk, 'pk', namespace=namespace)
 
+        # 
+        # Connect to dispatcher
+        #
+        dispatcher.connect(receiver=post_save, signal=signals.post_save, sender=self.model)
+        dispatcher.connect(receiver=pre_delete, signal=signals.pre_delete, sender=self.model)
+        
     def add_field(self, field, name=None, namespace=None):
         """Add the given field to the Indexer, where `field` is either
         an object path string or a Field instance. If `name` is None,
@@ -200,28 +214,3 @@ class Indexer(object):
 
     def _prepare_path(self, path):
         pass
-
-def test_indexer():
-    # Note: I'm not very good at writing tests.
-
-    class Person(models.Model):
-        first_name = models.CharField(maxlength=30)
-        last_name = models.CharField(maxlength=30)
-        description = models.TextField()
-
-    i = Indexer('', Person, ['Person.description'], {'first': 'Person.first_name'},
-                last='Person.last_name', namespace=locals())
-
-    assert Person._meta.get_field('description') in i.text_fields
-    assert set([Person._meta.get_field('first_name'),
-                Person._meta.get_field('last_name')]) == \
-           set(i.attr_fields.values())
-    assert 'first' in i.attr_fields and 'last' in i.attr_fields
-
-    i.remove_field('Person.description', namespace=locals())
-    assert not i.text_fields
-
-    i.remove_field(name='last')
-    assert 'last' not in i.attr_fields
-    print "Test succeeded."
-    return i
