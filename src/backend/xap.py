@@ -40,7 +40,7 @@ class XapianIndexer(Indexer):
                     continue
 
                 for field_v in Text().split(posting):
-                    doc.add_posting(field_v, position)
+                    doc.add_posting(field_v.lower(), position)
                     position += 1
 
             valueno = 1 # This is the valueno used to sort docs
@@ -59,7 +59,7 @@ class XapianIndexer(Indexer):
                 valueno += 1
 
                 for field_v in Text().split(field_value):
-                    doc.add_posting('%s%s'%(name.upper(), field_v), position)
+                    doc.add_posting('%s%s'%(name.upper(), field_v.lower()), position)
                     position += 1
 
             idx.replace_document(row.id, doc)

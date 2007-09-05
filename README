@@ -10,3 +10,7 @@ of search-api)
 --
 
 You need xapian-core and xapian-binding with python enabled to use this module
+
+--
+Version 1.0.1
+ * Bug Fix: Issue #1 (Words captalized are not searchable)
