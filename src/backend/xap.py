@@ -52,13 +52,35 @@ class XapianIndexer(Indexer):
                 if callable(field_value):
                     field_value = str(field_value())
                 else:
-                    field_value = str(field_value)
-
-                # Keys used for sort
-                doc.add_value(valueno, field_value)
+                    # Issue #2
+                    content_type = row._meta.get_field(field.name)
+                    if isinstance(content_type, models.IntegerField):
+                        #
+                        # Integer fields are stored with 12 leading zeros
+                        #
+                        doc.add_value(valueno, '%012d'%(field_value))
+                    elif isinstance(content_type, models.BooleanField):
+                        #
+                        # Boolean fields are stored as 't' or 'f'
+                        #
+                        if field_value:
+                            doc.add_value(valueno, 't')
+                        else:
+                            doc.add_value(valueno, 'f')
+                    elif isinstance(content_type, models.DateTimeField):
+                        #
+                        # DateTime fields are stored as %Y%m%d%H%M%S (better 
+                        # sorting)
+                        # 
+                        doc.add_term('YEAR%d'%(field_value.year))
+                        doc.add_term('MONTH%d'%(field_value.month))
+                        doc.add_term('DAY%d'%(field_value.day))
+                        doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
+                    else:
+                        doc.add_value(valueno, str(field_value))
                 valueno += 1
 
-                for field_v in Text().split(field_value):
+                for field_v in Text().split(str(field_value)):
                     doc.add_posting('%s%s'%(name.upper(), field_v.lower()), position)
                     position += 1
 
