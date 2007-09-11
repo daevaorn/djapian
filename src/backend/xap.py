@@ -40,7 +40,11 @@ class XapianIndexer(Indexer):
                     continue
 
                 for field_v in Text().split(posting):
-                    doc.add_posting(field_v.lower(), position)
+                    doc.add_posting(
+                        field_v.lower(), # Term
+                        position, # Position
+                        self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
+                    )
                     position += 1
 
             valueno = 1 # This is the valueno used to sort docs
@@ -81,13 +85,18 @@ class XapianIndexer(Indexer):
                 valueno += 1
 
                 for field_v in Text().split(str(field_value)):
-                    doc.add_posting('%s%s'%(name.upper(), field_v.lower()), position)
+                    doc.add_posting(
+                        '%s%s'%(name.upper(), field_v.lower()), # Term
+                        position, # Position
+                        self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
+                    )
+                    print name, self.get_weight(name, True)
                     position += 1
 
             idx.replace_document(row.id, doc)
         del idx
 
-    def search(self, query, order_by='-date', offset=0, limit=1000):
+    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000):
         idx = xapian.Database(self.path)
         enquire = xapian.Enquire(idx)
 

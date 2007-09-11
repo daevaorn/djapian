@@ -104,11 +104,32 @@ class Indexer(object):
         that namespace['models'] refers to the intended module and NOT the
         django.db.models module imported here.
         """
-        if fields is None:
-            fields = []
+        self.model = model # Model indexed
+        self.text_fields = set([]) # Simple text fields
+        self.attr_fields = {} # Prefixed fields
+        self.weight = {} # Weights of fields
+        new_fields = []
+        #
+        # Parse fields
+        #
+        if isinstance(fields, (tuple, list)): # Issue #3
+            #
+            # For each field checks if it is a tuple or a list and add it's 
+            # weight
+            #
+            for field in fields: 
+                if isinstance(field, (tuple, list)):
+                    self.add_weigth(field[0], field[1], is_prefix=False)
+                    new_fields.append(field[0])
+                else:
+                    new_fields.append(field)
+                    
         elif isinstance(fields, basestring):
-            fields = [fields]
+            new_fields = [fields]
         
+        #
+        # Parse prefixed fields
+        #        
         if attributes is None:
             attributes = kwargs
         else:
@@ -116,18 +137,21 @@ class Indexer(object):
             kwargs.update(attributes)
             attributes = kwargs
 
+        for prefix in attributes:
+            field = attributes[prefix]
+            if isinstance(field, (tuple, list)):
+                self.add_weigth(field[0], field[1], is_prefix=True)
+                attributes[prefix] = field[0]
+                
         if namespace is None:
             # FIXME: This uses the sys._getframe hack to get the caller's namespace.
             namespace = sys._getframe(1).f_globals
 
         self._prepare_path(path)
-
         self.path = path
-        self.model = model
-        self.text_fields = set([])
-        self.attr_fields = {}
 
-        for field in fields:
+
+        for field in new_fields:
             self.add_field(field, namespace=namespace)
 
         for name, field in attributes.iteritems():
@@ -161,13 +185,48 @@ class Indexer(object):
                 field = str_to_field(field,  namespace)
             except models.fields.FieldDoesNotExist:
                 # TODO: How call the function here?
-                # Follow the dirty solution
+                # Here is the dirty solution
                 field = PseudoField(field)
 
         if name:
             self.attr_fields[name] = field
         else:
             self.text_fields.add(field)
+
+    def add_weigth(self, field, weight, is_prefix=False):
+        '''Set to a weight for the words in the index, so those words will 
+        increase the score of the document when it's hitted.
+        
+        `field` is the field name which receive the weight
+        
+        `weight` is a number which represent the weight of this word in the 
+        document, be careful with this, because very higher numbers may 
+        invalidate the search, here come a simple math:
+            5 words with a weight of 10 will have a final weight of 50, please 
+            reffer to http://www.xapian.org/docs/intro_ir.html and to 
+            http://www.xapian.org/docs/apidoc/html/classXapian_1_1Document.html#3cadc734caf3d1abdbc17290d515b546 
+            for a better explanation of why this happen (we set the `wdf` 
+            (Within document frequency))
+        
+        `is_prefix` is used to say if this weight should be applied (typo?) in 
+        the prefix or in the regular text
+        '''
+        if not isinstance(weight, int):
+            raise ValueError, '`weight` must be integer'
+        if not isinstance(is_prefix, bool):
+            raise ValueError, '`is_prefix` must be boolean'
+        
+        self.weight[(field, is_prefix)] = weight
+        
+    def get_weight(self, field, is_prefix):
+        '''Return the weight to the `field` or 1 if there is no weight setted'''
+        #
+        # Get the weight of the field
+        # 
+        if (field, is_prefix) in self.weight:
+            return self.weight[(field, is_prefix)]
+        else:
+            return 1 # Default weight
 
     def remove_field(self, field=None, name=None, find_name=True, namespace=None):
         """Remove the given field from the Indexer, where `field` is either
