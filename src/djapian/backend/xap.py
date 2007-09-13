@@ -90,7 +90,6 @@ class XapianIndexer(Indexer):
                         position, # Position
                         self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
                     )
-                    print name, self.get_weight(name, True)
                     position += 1
 
             idx.replace_document(row.id, doc)
