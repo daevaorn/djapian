@@ -81,10 +81,18 @@ class XapianIndexer(Indexer):
                         doc.add_term('DAY%d'%(field_value.day))
                         doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
                     else:
-                        doc.add_value(valueno, str(field_value))
+                        try:
+                            doc.add_value(valueno, str(field_value))
+                        except UnicodeEncodeError, e:
+                            if isinstance(field_value, unicode):
+                                doc.add_value(valueno, field_value.encode('utf-8'))
+                            else:
+                                doc.add_value(valueno, repr(field_value))
+                            
+                                
                 valueno += 1
 
-                for field_v in Text().split(str(field_value)):
+                for field_v in Text().split(unicode(field_value)):
                     doc.add_posting(
                         '%s%s'%(name.upper(), field_v.lower()), # Term
                         position, # Position
