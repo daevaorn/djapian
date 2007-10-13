@@ -176,7 +176,7 @@ class XapianIndexer(Indexer):
             idx = xapian.WritableDatabase(self.path, xapian.DB_CREATE_OR_OPEN)
             idx.delete_document(doc_id)
             del idx
-        except (IOError, RuntimeError):
+        except (IOError, RuntimeError, xapian.DocNotFoundError), e:
             pass
 
 
