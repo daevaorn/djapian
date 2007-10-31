@@ -109,6 +109,7 @@ class Indexer(object):
         self.attr_fields = {} # Prefixed fields
         self.weight = {} # Weights of fields
         new_fields = []
+        self.add_database = []
         #
         # Parse fields
         #
