@@ -1,3 +1,5 @@
+# -*- encoding: utf-8 -*-
+
 class QueryParser(object):
     # TODO: Make a common query language for all the backends.
     pass
@@ -15,9 +17,9 @@ class ResultSet(object):
 
 
 class Hit(object):
-    def __init__(self, data, indexer):
+    def __init__(self, data, indexer, model):
         self.indexer = indexer
-        self.model = indexer.model
+        self.model = model
         self.data = data
 
     def get_instance(self):

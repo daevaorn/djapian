@@ -6,9 +6,20 @@ from query import ResultSet, Hit
 from base import Indexer
 
 from djapian.backend.text import Text
+from djapian import djapian_import
 
 class XapianIndexer(Indexer):
     def update(self, documents=None):
+        '''Update the database with the documents.
+        There are some default value and terms in a document:
+         * Values:
+           1. Used to store the ID of the document
+           2. Store the model of the object (in the string format, like "project.app.model")
+           3..10. Free
+
+         * Terms
+           UID: Used to store the ID of the document, so we can replace the document by the ID
+        '''
         # Open Xapian Database
         idx = xapian.WritableDatabase(self.path, xapian.DB_CREATE_OR_OPEN)
 
@@ -21,11 +32,18 @@ class XapianIndexer(Indexer):
         # Get each document received
         for row in update_queue:
             doc = xapian.Document()
+            #
+            # Add default terms and values
+            #
+            doc.add_term("UID%d"%row.id)
+            doc.add_value(1, '%d'%row.id)
+            doc.add_value(2, '%s.%s'%(row.__class__.__module__, row.__class__.__name__))
+
             position = 1
             # Get each text field
             for field in self.text_fields:
                 posting = ''
-                # Get it value
+                # Get its value
                 field_value = getattr(row,field.name)
                 # If it's a function
                 if callable(field_value):
@@ -47,7 +65,7 @@ class XapianIndexer(Indexer):
                     )
                     position += 1
 
-            valueno = 1 # This is the valueno used to sort docs
+            valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
             # Set all prefixed fields (as value and prefixed postings)
             for name, field in self.attr_fields.iteritems():
                 # Get the field value based in the field name
@@ -100,11 +118,13 @@ class XapianIndexer(Indexer):
                     )
                     position += 1
 
-            idx.replace_document(row.id, doc)
+            idx.replace_document("UID%d"%(row.id), doc)
         del idx
 
     def search(self, query, order_by='RELEVANCE', offset=0, limit=1000):
         idx = xapian.Database(self.path)
+        for path in self.add_database:
+            idx.add_database(xapian.Database(path))
         enquire = xapian.Enquire(idx)
 
         if order_by == 'RELEVANCE':
@@ -117,7 +137,7 @@ class XapianIndexer(Indexer):
             while order_by[0] in '+-':
                 order_by = order_by[1:]
 
-            valueno = 1
+            valueno = 11
             for name, v in self.attr_fields.iteritems():
                 if name == order_by:
                     break
@@ -130,7 +150,8 @@ class XapianIndexer(Indexer):
         for match in mset:
             results.append({
                 'score':match[xapian.MSET_PERCENT],
-                'uid':match[xapian.MSET_DID]
+                'uid':match[xapian.MSET_DOCUMENT].get_value(1),
+                'model':match[xapian.MSET_DOCUMENT].get_value(2)
             })
         self.mset = mset
         return XapianResultSet(results,self)
@@ -198,25 +219,25 @@ class XapianResultSet(ResultSet):
 
     def __len__(self):
         return self._indexer.mset.get_matches_estimated()
+    count = __len__
 
     def __iter__(self):
         for hit in self._hits:
-            yield XapianHit(hit,self._indexer)
+            yield XapianHit(hit,self._indexer, djapian_import(hit['model']))
 
     def __getitem__(self,pos):
         '''Allow use index-based access'''
-        return XapianHit(self._hits[pos],self._indexer)
+        return XapianHit(self._hits[pos],self._indexer, djapian_import(hit['model']))
 
     def __getslice__(self,start,end):
         '''Allows use slices to retrive the information
         WARNING: This returns a generator, not a "list"
         '''
         for hit in self._hits[start:end]:
-            yield XapianHit(hit,self._indexer)
+            yield XapianHit(hit,self._indexer, djapian_import(hit['model']))
 
 class XapianHit(Hit):
     def get_pk(self):
-        # FIXME: Hardcoded 'pk' field.
         return self.data['uid']
 
     def __getitem__(self, item):
