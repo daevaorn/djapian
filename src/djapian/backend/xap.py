@@ -195,7 +195,7 @@ class XapianIndexer(Indexer):
         """Delete a document from Xapian"""
         try:
             idx = xapian.WritableDatabase(self.path, xapian.DB_CREATE_OR_OPEN)
-            idx.delete_document(doc_id)
+            idx.delete_document('UID%d'%doc_id)
             del idx
         except (IOError, RuntimeError, xapian.DocNotFoundError), e:
             pass
