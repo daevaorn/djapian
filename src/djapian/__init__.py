@@ -1,4 +1,6 @@
-# -*- encoding: utf-8 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 IMPORTED_MODULES = {}
 def djapian_import(pkg):
     '''Replacement for __import__, should be used insted it.
