@@ -1,11 +1,11 @@
-This package (backend only) is a replacement (fork) to django.contrib.search 
+This package (backend only) is a replacement (fork) of django.contrib.search 
 (branch search-api), the original documentation can be found at:
 
 http://code.djangoproject.com/wiki/TextIndexingAbstractionLayer
 
-The focus of this package is 100% Xapian (http://www.xapian.org), but feel free
+The focus of this package is 100% based on Xapian (http://www.xapian.org), but feel free
 to do the changes and allow it work with Lucene and Hype (the original propose 
-of search-api)
+of the search-api)
 
 --
 
