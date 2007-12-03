@@ -67,6 +67,8 @@ class XapianIndexer(Indexer):
                         position += 1
                 except AttributeError, e:
                     print 'AttributeError: %s'%e
+                except UnicodeDecodeError, e:
+                    print 'UnicodeDecodeError: %s'%(e)
                     
             valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
             # Set all prefixed fields (as value and prefixed postings)
@@ -122,9 +124,11 @@ class XapianIndexer(Indexer):
                             )
                             position += 1
                         except UnicodeDecodeError, e:
-                            print u'Forgivin word "%s"'%(field_value)
+                            print u'Forgoting word "%s"'%(field_value)
                 except AttributeError, e:
-                    print 'AttributeError: %s'%e               
+                    print 'AttributeError: %s'%e
+                except UnicodeDecodeError, e:
+                    print 'UnicodeDecodeError: %s'%(e)               
             idx.replace_document("UID%d"%(row.id), doc)
         del idx
 
