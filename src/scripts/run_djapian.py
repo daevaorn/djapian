@@ -38,7 +38,7 @@ def update_changes(verbose):
                         index.update([src_obj])
                     except UnicodeDecodeError, e:
                         err = open('djapian_error.log','a')
-                        err.write('The object %s raise a UnicodeDecodeError'%(unicode(obj))
+                        err.write('The object %s raise a UnicodeDecodeError'%(unicode(obj)))
                         err.close()
                 except index.model.DoesNotExist:
                     pass
