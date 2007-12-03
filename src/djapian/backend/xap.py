@@ -109,16 +109,16 @@ class XapianIndexer(Indexer):
                             
                                 
                 valueno += 1
-                try:
-                    for field_v in Text().split(unicode(field_value)):
+                for field_v in Text().split(unicode(field_value)):
+                    try:
                         doc.add_posting(
                             '%s%s'%(name.upper(), field_v.lower()), # Term
                             position, # Position
                             self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
                         )
                         position += 1
-                except UnicodeDecodeError, e:
-                    print u'Forgivin word "%s"'%(field_value)
+                    except UnicodeDecodeError, e:
+                        print u'Forgivin word "%s"'%(field_value)
 
             idx.replace_document("UID%d"%(row.id), doc)
         del idx
