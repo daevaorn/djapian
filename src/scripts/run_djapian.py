@@ -34,7 +34,12 @@ def update_changes(verbose):
             else:
                 try:
                     src_obj = index.model.objects.get(id=obj.did)
-                    index.update([src_obj])
+                    try:
+                        index.update([src_obj])
+                    except UnicodeDecodeError, e:
+                        err = open('djapian_error.log','a')
+                        err.write('The object %s raise a UnicodeDecodeError'%(unicode(obj))
+                        err.close()
                 except index.model.DoesNotExist:
                     pass
             # Delete the object from database
