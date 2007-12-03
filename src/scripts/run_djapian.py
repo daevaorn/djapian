@@ -40,6 +40,8 @@ def update_changes(verbose):
                         err = open('djapian_error.log','a')
                         err.write('The object %s raise a UnicodeDecodeError'%(unicode(obj)))
                         err.close()
+                    except AttributeError, e:
+                        print 'Damn it! You are trying to index a bugged model: %s'%(e)
                 except index.model.DoesNotExist:
                     pass
             # Delete the object from database
