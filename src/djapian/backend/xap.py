@@ -79,7 +79,7 @@ class XapianIndexer(Indexer):
                     # If it's a function get it content
                     if callable(field_value):
                         field_value = str(field_value())
-                    else:
+                    elif field_value != None:
                         # Issue #2
                         content_type = row._meta.get_field(field.name)
                         if isinstance(content_type, models.IntegerField):
