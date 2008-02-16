@@ -39,6 +39,8 @@ class Text(object):
 
     def split(self, text):
         """Return a list with the words of text"""
+        if text is None:
+            return []
         return [word for word in self.tokens.split(text) if word != '']
 
     def strip_tags(self,text):
