@@ -115,7 +115,9 @@ class XapianIndexer(Indexer):
                                 
                                     
                     valueno += 1
-                    for field_v in Text().split(unicode(field_value)):
+                    if not isinstance(field_value, unicode):
+                        field_value = unicode(field_value)
+                    for field_v in Text().split(field_value):
                         try:
                             doc.add_posting(
                                 '%s%s'%(name.upper(), field_v.lower()), # Term
