@@ -240,7 +240,7 @@ class XapianResultSet(ResultSet):
 
     def __getitem__(self,pos):
         '''Allow use index-based access'''
-        return XapianHit(self._hits[pos],self._indexer, djapian_import(hit['model']))
+        return XapianHit(self._hits[pos],self._indexer, djapian_import(self._hits['model']))
 
     def __getslice__(self,start,end):
         '''Allows use slices to retrive the information
