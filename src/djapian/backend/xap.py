@@ -39,101 +39,107 @@ class XapianIndexer(Indexer):
             doc.add_value(1, '%d'%row.id)
             doc.add_value(2, '%s.%s'%(row.__class__.__module__, row.__class__.__name__))
 
-            position = 1
-            # Get each text field
-            for field in self.text_fields:
-                try:
-                    posting = ''
-                    # Get its value
-                    field_value = getattr(row,field.name)
-                    # If it's a function
-                    if callable(field_value):
-                        if field_value().strip() != "":
-                            posting = field_value()
-                    else:
-                        if field_value.strip() != "":
-                            posting = field_value
-
-                    # There's no content to add
-                    if not posting:
-                        continue
-
-                    for field_v in Text().split(posting):
-                        doc.add_posting(
-                            field_v.lower(), # Term
-                            position, # Position
-                            self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
-                        )
-                        position += 1
-                except AttributeError, e:
-                    print 'AttributeError: %s'%e
-                except UnicodeDecodeError, e:
-                    print 'UnicodeDecodeError: %s'%(e)
-                    
-            valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
-            # Set all prefixed fields (as value and prefixed postings)
-            for name, field in self.attr_fields.iteritems():
-                try:
-                    # Get the field value based in the field name
-                    field_value = getattr(row, field.name)
-                    # If it's a function get it content
-                    if callable(field_value):
-                        field_value = str(field_value())
-                    elif field_value != None:
-                        # Issue #2
-                        content_type = row._meta.get_field(field.name)
-                        if isinstance(content_type, models.IntegerField):
-                            #
-                            # Integer fields are stored with 12 leading zeros
-                            #
-                            doc.add_value(valueno, '%012d'%(field_value))
-                        elif isinstance(content_type, models.BooleanField):
-                            #
-                            # Boolean fields are stored as 't' or 'f'
-                            #
-                            if field_value:
-                                doc.add_value(valueno, 't')
-                            else:
-                                doc.add_value(valueno, 'f')
-                        elif isinstance(content_type, models.DateTimeField):
-                            #
-                            # DateTime fields are stored as %Y%m%d%H%M%S (better 
-                            # sorting)
-                            # 
-                            doc.add_term('YEAR%d'%(field_value.year))
-                            doc.add_term('MONTH%d'%(field_value.month))
-                            doc.add_term('DAY%d'%(field_value.day))
-                            doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
-                        else:
-                            try:
-                                doc.add_value(valueno, str(field_value))
-                            except UnicodeEncodeError, e:
-                                if isinstance(field_value, unicode):
-                                    doc.add_value(valueno, field_value.encode('utf-8'))
-                                else:
-                                    doc.add_value(valueno, repr(field_value))
-                                
-                                    
-                    valueno += 1
-                    if not isinstance(field_value, unicode):
-                        field_value = unicode(field_value)
-                    for field_v in Text().split(field_value):
-                        try:
-                            doc.add_posting(
-                                '%s%s'%(name.upper(), field_v.lower()), # Term
-                                position, # Position
-                                self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
-                            )
-                            position += 1
-                        except UnicodeDecodeError, e:
-                            print u'Forgoting word "%s"'%(field_value)
-                except AttributeError, e:
-                    print 'AttributeError: %s'%e
-                except UnicodeDecodeError, e:
-                    print 'UnicodeDecodeError: %s'%(e)               
+            self.position = 1
+            self._add_postings(row, doc)
+            self._add_values(row, doc)
+            
             idx.replace_document("UID%d"%(row.id), doc)
         del idx
 
+    def _add_postings(self, row, doc):
+        # Get each text field
+        for field in self.text_fields:
+            try:
+                posting = ''
+                # Get its value
+                field_value = getattr(row,field.name)
+                # If it's a function
+                if callable(field_value):
+                    if field_value().strip() != "":
+                        posting = field_value()
+                else:
+                    if field_value.strip() != "":
+                        posting = field_value
+        
+                # There's no content to add
+                if not posting:
+                    continue
+        
+                for field_v in Text().split(posting):
+                    doc.add_posting(
+                        field_v.lower(), # Term
+                        self.position, # Position
+                        self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
+                    )
+                    self.position += 1
+            except AttributeError, e:
+                print 'AttributeError: %s'%e
+            except UnicodeDecodeError, e:
+                print 'UnicodeDecodeError: %s'%(e)
+
+    def _add_values(self, row, doc):
+        valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
+        # Set all prefixed fields (as value and prefixed postings)
+        for name, field in self.attr_fields.iteritems():
+            try:
+                # Get the field value based in the field name
+                field_value = getattr(row, field.name)
+                # If it's a function get it content
+                if callable(field_value):
+                    field_value = str(field_value())
+                elif field_value != None:
+                    # Issue #2
+                    content_type = row._meta.get_field(field.name)
+                    
+                    if isinstance(content_type, models.IntegerField):
+                        #
+                        # Integer fields are stored with 12 leading zeros
+                        #
+                        doc.add_value(valueno, '%012d'%(field_value))
+                    elif isinstance(content_type, models.BooleanField):
+                        #
+                        # Boolean fields are stored as 't' or 'f'
+                        #
+                        if field_value:
+                            doc.add_value(valueno, 't')
+                        else:
+                            doc.add_value(valueno, 'f')
+                    elif isinstance(content_type, models.DateTimeField):
+                        #
+                        # DateTime fields are stored as %Y%m%d%H%M%S (better 
+                        # sorting)
+                        # 
+                        doc.add_term('YEAR%d'%(field_value.year))
+                        doc.add_term('MONTH%d'%(field_value.month))
+                        doc.add_term('DAY%d'%(field_value.day))
+                        doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
+                    else:
+                        try:
+                            doc.add_value(valueno, str(field_value))
+                        except UnicodeEncodeError, e:
+                            if isinstance(field_value, unicode):
+                                doc.add_value(valueno, field_value.encode('utf-8'))
+                            else:
+                                doc.add_value(valueno, repr(field_value))
+
+                valueno += 1
+                if not isinstance(field_value, unicode):
+                    field_value = unicode(field_value)
+                for field_v in Text().split(field_value):
+                    try:
+                        doc.add_posting(
+                            '%s%s'%(name.upper(), field_v.lower()), # Term
+                            self.position, # Position
+                            self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
+                        )
+                        self.position += 1
+                    except UnicodeDecodeError, e:
+                        print u'Forgoting word "%s"'%(field_value)
+            except AttributeError, e:
+                print 'AttributeError: %s'%e
+            except UnicodeDecodeError, e:
+                print 'UnicodeDecodeError: %s'%(e)               
+    
     def search(self, query, order_by='RELEVANCE', offset=0, limit=1000):
         idx = xapian.Database(self.path)
         for path in self.add_database:
