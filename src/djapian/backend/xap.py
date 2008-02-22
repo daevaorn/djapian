@@ -157,7 +157,7 @@ class XapianIndexer(Indexer):
                 valueno += 1
             enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
-        enquire.set_query(self.parse_query(query))
+        enquire.set_query(self.parse_query(query, idx))
         mset = enquire.get_mset(offset, limit)
         results = []
         for match in mset:
@@ -176,7 +176,7 @@ class XapianIndexer(Indexer):
         db = xapian.Database(self.path)
         enq = xapian.Enquire(db)
         # Making the search
-        enq.set_query(self.parse_query(query))
+        enq.set_query(self.parse_query(query, db))
         res = enq.get_mset(0, 10)
         rset = xapian.RSet()
 
@@ -214,7 +214,7 @@ class XapianIndexer(Indexer):
             pass
 
 
-    def parse_query(self, term):
+    def parse_query(self, term, db):
         """Parse Queries"""
         # Instance Xapian Query Parser
         query_parser = xapian.QueryParser()
@@ -222,6 +222,7 @@ class XapianIndexer(Indexer):
         for name, field in self.attr_fields.iteritems():
             query_parser.add_prefix(name.lower(), name.upper())
 
+        query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
         return query_parser.parse_query(term)
 
