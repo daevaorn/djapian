@@ -124,7 +124,7 @@ class XapianIndexer(Indexer):
 
                 valueno += 1
                 if not isinstance(field_value, unicode):
-                    field_value = unicode(field_value)
+                    field_value = unicode(str(field_value), 'utf-8')
                 for field_v in Text().split(field_value):
                     try:
                         doc.add_posting(
@@ -138,7 +138,7 @@ class XapianIndexer(Indexer):
             except AttributeError, e:
                 print 'AttributeError: %s'%e
             except UnicodeDecodeError, e:
-                print 'UnicodeDecodeError: %s'%(e)               
+                print 'UnicodeDecodeError: %s'%(e)
     
     def search(self, query, order_by='RELEVANCE', offset=0, limit=1000):
         idx = xapian.Database(self.path)
