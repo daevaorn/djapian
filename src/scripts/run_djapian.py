@@ -2,11 +2,11 @@
 import os
 import sys
 import time
+from optparse import OptionParser
 from djapian import djapian_import
 from djapian.models import Change
 
-
-def update_changes(verbose):
+def update_changes(verbose, timeout):
     # It's a daemon, must run forever
     while True:
         # Get all objects that has chages
@@ -41,7 +41,7 @@ def update_changes(verbose):
                         err.write('The object %s raise a UnicodeDecodeError\n'%(unicode(obj)))
                         err.close()
                     except AttributeError, e:
-                        print 'Damn it! You are trying to index a bugged model: %s'%(e)
+                        print 'You are trying to index a bugged model: %s'%(e)
                 except index.model.DoesNotExist:
                     pass
             # Delete the object from database
@@ -58,25 +58,34 @@ def update_changes(verbose):
                 sys.stdout.flush()
         if verbose and objs_count > 0:
             print '\033[0;0m'
-        time.sleep(1)
+        time.sleep(timeout)
+
+
+def create_opt_parser():
+    # Construct usage string
+    usage = "%prog [-h] [-n] [-v]\n"
+    usage += "This is the Djapian daemon used to update the index based on djapian_change table."
+    
+    # Construct OptionParser object
+    optparser = OptionParser(usage=usage)
+    optparser.add_option("-v", "--verbose", dest="verbose", default=False,
+                        action="store_true", help="print execution details")
+    optparser.add_option("-n", "--no-fork", dest="no_fork", default=False,
+                        action="store_true", help="do not fork the process")
+    optparser.add_option("-t", "--time-out", dest="timeout", default=10,
+                        type="int", help="time to sleep between each query to the database (default: %default)")
+    
+    return optparser
+
 
 def main():
-    if '-h' in sys.argv or '--help' in sys.argv:
-        usage()
-        sys.exit(0)
-    verbose = False
-    if '-v' in sys.argv or '--verbose' in sys.argv:
-        verbose = True
-    if '-n' in sys.argv:
-        update_changes(verbose)
-    else:
-        if os.fork() == 0:
-            update_changes(verbose)
-
-def usage():
-    print 'Usage: %s [-n]'%__file__
-    print 'Where:'
-    print '    -n   Not fork, run this system in foreground'
+    optparser = create_opt_parser()
+    (options, args) = optparser.parse_args()
+    
+    if not options.no_fork:
+        if os.fork() <> 0:
+            sys.exit(0)
+    update_changes(options.verbose, options.timeout)
 
 if __name__ == '__main__':
     main()
