@@ -53,6 +53,9 @@ class XapianIndexer(Indexer):
                 posting = ''
                 # Get its value
                 field_value = getattr(row,field.name)
+                # A none value is not indexable
+                if field_value is None:
+                    continue
                 # If it's a function
                 if callable(field_value):
                     if field_value().strip() != "":
@@ -84,43 +87,54 @@ class XapianIndexer(Indexer):
             try:
                 # Get the field value based in the field name
                 field_value = getattr(row, field.name)
-                # If it's a function get it content
+                # A none value is not indexable
+                if field_value is None:
+                    continue
+                # If it's a function get its content
                 if callable(field_value):
-                    field_value = str(field_value())
-                elif field_value != None:
-                    # Issue #2
+                    field_value = field_value()
+                
+                # content_type is used to determine the type of the
+                # data to index. This try/execpt is used to be able
+                # to index data other than Django fields.
+                content_type = field_value
+                try:
                     content_type = row._meta.get_field(field.name)
-                    
-                    if isinstance(content_type, models.IntegerField):
-                        #
-                        # Integer fields are stored with 12 leading zeros
-                        #
-                        doc.add_value(valueno, '%012d'%(field_value))
-                    elif isinstance(content_type, models.BooleanField):
-                        #
-                        # Boolean fields are stored as 't' or 'f'
-                        #
-                        if field_value:
-                            doc.add_value(valueno, 't')
-                        else:
-                            doc.add_value(valueno, 'f')
-                    elif isinstance(content_type, models.DateTimeField):
-                        #
-                        # DateTime fields are stored as %Y%m%d%H%M%S (better 
-                        # sorting)
-                        # 
-                        doc.add_term('YEAR%d'%(field_value.year))
-                        doc.add_term('MONTH%d'%(field_value.month))
-                        doc.add_term('DAY%d'%(field_value.day))
-                        doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
+                except:
+                    pass
+                
+                if isinstance(content_type, models.IntegerField) \
+                    or isinstance(content_type, int) or isinstance(content_type, long):
+                    #
+                    # Integer fields are stored with 12 leading zeros
+                    #
+                    doc.add_value(valueno, '%012d'%(field_value))
+                elif isinstance(content_type, models.BooleanField) \
+                    or isinstance(content_type, bool):
+                    #
+                    # Boolean fields are stored as 't' or 'f'
+                    #
+                    if field_value:
+                        doc.add_value(valueno, 't')
                     else:
-                        try:
-                            doc.add_value(valueno, str(field_value))
-                        except UnicodeEncodeError, e:
-                            if isinstance(field_value, unicode):
-                                doc.add_value(valueno, field_value.encode('utf-8'))
-                            else:
-                                doc.add_value(valueno, repr(field_value))
+                        doc.add_value(valueno, 'f')
+                elif isinstance(content_type, models.DateTimeField):
+                    #
+                    # DateTime fields are stored as %Y%m%d%H%M%S (better 
+                    # sorting)
+                    # 
+                    doc.add_term('YEAR%d'%(field_value.year))
+                    doc.add_term('MONTH%d'%(field_value.month))
+                    doc.add_term('DAY%d'%(field_value.day))
+                    doc.add_value(valueno, field_value.strftime('%Y%m%d%H%M%S'))
+                else:
+                    try:
+                        doc.add_value(valueno, str(field_value))
+                    except UnicodeEncodeError, e:
+                        if isinstance(field_value, unicode):
+                            doc.add_value(valueno, field_value.encode('utf-8'))
+                        else:
+                            doc.add_value(valueno, repr(field_value))
 
                 valueno += 1
                 if not isinstance(field_value, unicode):
