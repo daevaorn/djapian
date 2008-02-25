@@ -74,6 +74,7 @@ class XapianIndexer(Indexer):
                         self.position, # Position
                         self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
                     )
+                    idx.add_spelling(field_v.lower())
                     self.position += 1
             except AttributeError, e:
                 print 'AttributeError: %s'%e
@@ -248,9 +249,15 @@ class XapianIndexer(Indexer):
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
         if flags is not None:
-            return query_parser.parse_query(term, flags)
+            parsed_query = query_parser.parse_query(term, flags)
         else:
-            return query_parser.parse_query(term)
+            parsed_query = query_parser.parse_query(term)
+        # This will only work if the flag FLAG_SPELLING_CORRECTION is set
+        self.corrected_query_string = query_parser.get_corrected_query_string()
+        return parsed_query
+    
+    def get_corrected_query_string(self):
+        return self.corrected_query_string
 
 class XapianResultSet(ResultSet):
     def __init__(self, hits, indexer):
