@@ -154,7 +154,10 @@ class XapianIndexer(Indexer):
             except UnicodeDecodeError, e:
                 print 'UnicodeDecodeError: %s'%(e)
     
-    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000):
+    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, flags=None):
+        """ flags are as defined in the Xapian API :
+            http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
+            Combine multiple values with bitwise-or (|)."""
         idx = xapian.Database(self.path)
         for path in self.add_database:
             idx.add_database(xapian.Database(path))
@@ -177,7 +180,7 @@ class XapianIndexer(Indexer):
                 valueno += 1
             enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
-        enquire.set_query(self.parse_query(query, idx))
+        enquire.set_query(self.parse_query(query, idx, flags))
         mset = enquire.get_mset(offset, limit)
         results = []
         for match in mset:
@@ -189,14 +192,14 @@ class XapianIndexer(Indexer):
         self.mset = mset
         return XapianResultSet(results,self)
 
-    def related(self, query, count = 10):
+    def related(self, query, count = 10, flags=None):
         ''' Returns the related tags'''
 
         # Open the database
         db = xapian.Database(self.path)
         enq = xapian.Enquire(db)
         # Making the search
-        enq.set_query(self.parse_query(query, db))
+        enq.set_query(self.parse_query(query, db, flags))
         res = enq.get_mset(0, 10)
         rset = xapian.RSet()
 
@@ -234,7 +237,7 @@ class XapianIndexer(Indexer):
             pass
 
 
-    def parse_query(self, term, db):
+    def parse_query(self, term, db, flags=None):
         """Parse Queries"""
         # Instance Xapian Query Parser
         query_parser = xapian.QueryParser()
@@ -244,7 +247,10 @@ class XapianIndexer(Indexer):
 
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
-        return query_parser.parse_query(term)
+        if flags is not None:
+            return query_parser.parse_query(term, flags)
+        else:
+            return query_parser.parse_query(term)
 
 class XapianResultSet(ResultSet):
     def __init__(self, hits, indexer):
