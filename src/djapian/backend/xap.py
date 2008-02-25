@@ -40,13 +40,13 @@ class XapianIndexer(Indexer):
             doc.add_value(2, '%s.%s'%(row.__class__.__module__, row.__class__.__name__))
 
             self.position = 1
-            self._add_postings(row, doc)
+            self._add_postings(idx, row, doc)
             self._add_values(row, doc)
             
             idx.replace_document("UID%d"%(row.id), doc)
         del idx
 
-    def _add_postings(self, row, doc):
+    def _add_postings(self, idx, row, doc):
         # Get each text field
         for field in self.text_fields:
             try:
