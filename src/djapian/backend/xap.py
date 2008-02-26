@@ -40,13 +40,14 @@ class XapianIndexer(Indexer):
             doc.add_value(2, '%s.%s'%(row.__class__.__module__, row.__class__.__name__))
 
             self.position = 1
-            self._add_postings(idx, row, doc)
-            self._add_values(row, doc)
+            self._process_text_fields(idx, row, doc)
+            self._process_attr_fields(row, doc)
             
             idx.replace_document("UID%d"%(row.id), doc)
+        idx.flush()
         del idx
 
-    def _add_postings(self, idx, row, doc):
+    def _process_text_fields(self, idx, row, doc):
         # Get each text field
         for field in self.text_fields:
             try:
@@ -56,19 +57,20 @@ class XapianIndexer(Indexer):
                 # A none value is not indexable
                 if field_value is None:
                     continue
-                # If it's a function
+                # If it's a function, get it's result
                 if callable(field_value):
-                    if field_value().strip() != "":
-                        posting = field_value()
-                else:
-                    if field_value.strip() != "":
-                        posting = field_value
+                    field_value = field_value()
+                # We consider the stripped value of the text
+                if field_value.strip() != "":
+                    posting = field_value
         
                 # There's no content to add
                 if not posting:
                     continue
         
                 for field_v in Text().split(posting):
+                    # A posting is an instance of a particular term indexing the document
+                    # See http://www.xapian.org/docs/glossary.html
                     doc.add_posting(
                         field_v.lower(), # Term
                         self.position, # Position
@@ -81,7 +83,7 @@ class XapianIndexer(Indexer):
             except UnicodeDecodeError, e:
                 print 'UnicodeDecodeError: %s'%(e)
 
-    def _add_values(self, row, doc):
+    def _process_attr_fields(self, row, doc):
         valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
         # Set all prefixed fields (as value and prefixed postings)
         for name, field in self.attr_fields.iteritems():
