@@ -10,6 +10,19 @@ from djapian.backend.text import Text
 from djapian import djapian_import
 
 class XapianIndexer(Indexer):
+    def _get_stemmer(self):
+        """ Instanciate a new stemmer if it's not already instanciated """
+        if not hasattr(self, "_stemmer"):
+            # We instanciate a stemmer for a particular language if the 
+            # DJAPIAN_STEMMING_LANG variable is defined in the stemming.py
+            # file of the current Django project, else we instanciate 
+            # a stemmer that does not stem words.
+            if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
+                self._stemmer = xapian.Stem(settings.DJAPIAN_STEMMING_LANG)
+            else:
+                self._stemmer = xapian.Stem("none")
+        return self._stemmer
+
     def update(self, documents=None):
         '''Update the database with the documents.
         There are some default value and terms in a document:
@@ -29,12 +42,6 @@ class XapianIndexer(Indexer):
             update_queue = self.model.objects.all()
         else:
             update_queue = documents
-
-        # Instanciate a stemmer
-        if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
-            self.stemmer = xapian.Stem(settings.DJAPIAN_STEMMING_LANG)
-        else:
-            self.stemmer = xapian.Stem("none")
 
         # Get each document received
         for row in update_queue:
@@ -59,7 +66,7 @@ class XapianIndexer(Indexer):
         # We must prefix the stemmed form of the word with Z,
         # because the QueryParser add this prefix to each stemmed
         # words when it stems a search query.
-        return "Z" + self.stemmer(word)
+        return "Z" + self._get_stemmer()(word)
 
     def _process_text_fields(self, idx, row, doc):
         # Get each text field
@@ -273,7 +280,7 @@ class XapianIndexer(Indexer):
         
         # Stemming
         if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
-            query_parser.set_stemmer(xapian.Stem(settings.DJAPIAN_STEMMING_LANG))
+            query_parser.set_stemmer(self._get_stemmer())
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
         
         if flags is not None:
@@ -324,5 +331,3 @@ class XapianHit(Hit):
         return self.data['score']
 
     score = property(get_score)
-
-
