@@ -1,6 +1,7 @@
 import string
 import xapian
 from django.db import models
+from django.conf import settings
 from datetime import datetime
 from query import ResultSet, Hit
 from base import Indexer
@@ -29,6 +30,12 @@ class XapianIndexer(Indexer):
         else:
             update_queue = documents
 
+        # Instanciate a stemmer
+        if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
+            self.stemmer = xapian.Stem(settings.DJAPIAN_STEMMING_LANG)
+        else:
+            self.stemmer = xapian.Stem("none")
+
         # Get each document received
         for row in update_queue:
             doc = xapian.Document()
@@ -46,6 +53,13 @@ class XapianIndexer(Indexer):
             idx.replace_document("UID%d"%(row.id), doc)
         idx.flush()
         del idx
+
+    def _stem_word(self, word):
+        """ Return the stemmed form of a word for indexing """
+        # We must prefix the stemmed form of the word with Z,
+        # because the QueryParser add this prefix to each stemmed
+        # words when it stems a search query.
+        return "Z" + self.stemmer(word)
 
     def _process_text_fields(self, idx, row, doc):
         # Get each text field
@@ -69,14 +83,17 @@ class XapianIndexer(Indexer):
                     continue
         
                 for field_v in Text().split(posting):
+                    field_v = field_v.lower()
                     # A posting is an instance of a particular term indexing the document
                     # See http://www.xapian.org/docs/glossary.html
-                    doc.add_posting(
-                        field_v.lower(), # Term
-                        self.position, # Position
-                        self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
-                    )
-                    idx.add_spelling(field_v.lower())
+                    # Index both the term and it's stemmed form
+                    for term in (field_v, self._stem_word(field_v)):
+                        doc.add_posting(
+                            term, # Term
+                            self.position, # Position
+                            self.get_weight('.'.join((self.model._meta.object_name,field.name)), False) # Weight
+                        )
+                    idx.add_spelling(field_v)
                     self.position += 1
             except AttributeError, e:
                 print 'AttributeError: %s'%e
@@ -144,11 +161,14 @@ class XapianIndexer(Indexer):
                     field_value = unicode(str(field_value), 'utf-8')
                 for field_v in Text().split(field_value):
                     try:
-                        doc.add_posting(
-                            '%s%s'%(name.upper(), field_v.lower()), # Term
-                            self.position, # Position
-                            self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
-                        )
+                        field_v = field_v.lower()
+                        # Index both the term and it's stemmed form
+                        for term in (field_v, self._stem_word(field_v)):
+                            doc.add_posting(
+                                '%s%s'%(name.upper(), term), # Term
+                                self.position, # Position
+                                self.get_weight('.'.join((self.model._meta.object_name,name)), True) # Weight
+                            )
                         self.position += 1
                     except UnicodeDecodeError, e:
                         print u'Forgoting word "%s"'%(field_value)
@@ -250,12 +270,20 @@ class XapianIndexer(Indexer):
 
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
+        
+        # Stemming
+        if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
+            query_parser.set_stemmer(xapian.Stem(settings.DJAPIAN_STEMMING_LANG))
+            query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
+        
         if flags is not None:
             parsed_query = query_parser.parse_query(term, flags)
         else:
             parsed_query = query_parser.parse_query(term)
+        
         # This will only work if the flag FLAG_SPELLING_CORRECTION is set
         self.corrected_query_string = query_parser.get_corrected_query_string()
+        
         return parsed_query
     
     def get_corrected_query_string(self):
