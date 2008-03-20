@@ -87,7 +87,8 @@ class PseudoField(str):
         return self.name.upper()
 
 class Indexer(object):
-    def __init__(self, path, model, fields=None, attributes=None, namespace=None, **kwargs):
+    def __init__(self, path, model, fields=None, attributes=None, namespace=None, \
+                       stemming_lang_accessor="get_stemming_lang", **kwargs):
         """Initialize an Indexer whose index data is stored at `path`.
         `model` is the Model (or string name of the model) whose instances will
         be used as documents. Note that fields from other models can still be
@@ -109,6 +110,7 @@ class Indexer(object):
         self.attr_fields = {} # Prefixed fields
         self.weight = {} # Weights of fields
         new_fields = []
+        self.stemming_lang_accessor = stemming_lang_accessor
         self.add_database = set()
         #
         # Parse fields

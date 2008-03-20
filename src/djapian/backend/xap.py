@@ -9,20 +9,60 @@ from base import Indexer
 from djapian.backend.text import Text
 from djapian import djapian_import
 
-class XapianIndexer(Indexer):
-    def _get_stemmer(self):
-        """ Instanciate a new stemmer if it's not already instanciated """
-        if not hasattr(self, "_stemmer"):
-            # We instanciate a stemmer for a particular language if the 
-            # DJAPIAN_STEMMING_LANG variable is defined in the stemming.py
-            # file of the current Django project, else we instanciate 
-            # a stemmer that does not stem words.
-            if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
-                self._stemmer = xapian.Stem(settings.DJAPIAN_STEMMING_LANG)
+class DjapianStemmer:
+    def __init__(self, django_model_instance, stemming_lang_accessor = "get_stemming_lang"):
+        """ Construct a stemmer tailored for a particular model instance to index. """
+        
+        self.stemming_lang_accessor = stemming_lang_accessor
+        
+        language = None
+        djapian_stemming_lang = getattr(settings, "DJAPIAN_STEMMING_LANG", None)
+        
+        # Language is not defined; no stemming will be performed
+        if djapian_stemming_lang is None:
+            language = "none"
+        # A per-model language setting is used
+        elif djapian_stemming_lang == "multi":
+            language = self._get_lang_from_model(django_model_instance)
+        # Use the language defined in DJAPIAN_STEMMING_LANG
+        else:
+            language = djapian_stemming_lang
+        
+        try:
+            self.stemmer = xapian.Stem(language)
+        except xapian.InvalidArgumentError, e:
+            print "%s; disabling stemming for this document." % e
+            self.stemmer = xapian.Stem("none")
+    
+    def stem_word(self, word):
+        """ Return the stemmed form of a word """
+        # This is the strangeness of the Xapian API which uses the () operator
+        # to stem a word
+        return self.stemmer(word)
+    
+    def stem_word_for_indexing(self, word):
+        """ Return the stemmed form of a word with prefix for indexing """
+        # We must prefix the stemmed form of the word with Z,
+        # because the QueryParser add this prefix to each stemmed
+        # words when it stems a search query.
+        return "Z" + self.stem_word(word)
+    
+    def _get_lang_from_model(self, django_model_instance):
+        """ Get the language from the Django model instance we are indexing.
+            The language will be obtained if an accessor called by default
+            'get_stemming_lang' is defined on the model. """
+        
+        # The name of the accessor is in self.stemming_lang_accessor
+        if hasattr(django_model_instance, self.stemming_lang_accessor):
+            accessor = getattr(django_model_instance, self.stemming_lang_accessor)
+            if callable(accessor):
+                return accessor()
             else:
-                self._stemmer = xapian.Stem("none")
-        return self._stemmer
+                return accessor
+        # No language defined
+        return None
 
+class XapianIndexer(Indexer):
     def update(self, documents=None):
         '''Update the database with the documents.
         There are some default value and terms in a document:
@@ -54,21 +94,15 @@ class XapianIndexer(Indexer):
             doc.add_value(2, '%s.%s'%(row.__class__.__module__, row.__class__.__name__))
 
             self.position = 1
-            self._process_text_fields(idx, row, doc)
-            self._process_attr_fields(row, doc)
+            stemmer = DjapianStemmer(row, self.stemming_lang_accessor)
+            self._process_text_fields(idx, row, doc, stemmer)
+            self._process_attr_fields(row, doc, stemmer)
             
             idx.replace_document("UID%d"%(row.id), doc)
         idx.flush()
         del idx
 
-    def _stem_word(self, word):
-        """ Return the stemmed form of a word for indexing """
-        # We must prefix the stemmed form of the word with Z,
-        # because the QueryParser add this prefix to each stemmed
-        # words when it stems a search query.
-        return "Z" + self._get_stemmer()(word)
-
-    def _process_text_fields(self, idx, row, doc):
+    def _process_text_fields(self, idx, row, doc, stemmer):
         # Get each text field
         for field in self.text_fields:
             try:
@@ -94,7 +128,7 @@ class XapianIndexer(Indexer):
                     # A posting is an instance of a particular term indexing the document
                     # See http://www.xapian.org/docs/glossary.html
                     # Index both the term and it's stemmed form
-                    for term in (field_v, self._stem_word(field_v)):
+                    for term in (field_v, stemmer.stem_word_for_indexing(field_v)):
                         doc.add_posting(
                             term, # Term
                             self.position, # Position
@@ -107,7 +141,7 @@ class XapianIndexer(Indexer):
             except UnicodeDecodeError, e:
                 print 'UnicodeDecodeError: %s'%(e)
 
-    def _process_attr_fields(self, row, doc):
+    def _process_attr_fields(self, row, doc, stemmer):
         valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
         # Set all prefixed fields (as value and prefixed postings)
         for name, field in self.attr_fields.iteritems():
@@ -170,7 +204,7 @@ class XapianIndexer(Indexer):
                     try:
                         field_v = field_v.lower()
                         # Index both the term and it's stemmed form
-                        for term in (field_v, self._stem_word(field_v)):
+                        for term in (field_v, stemmer.stem_word_for_indexing(field_v)):
                             doc.add_posting(
                                 '%s%s'%(name.upper(), term), # Term
                                 self.position, # Position
@@ -184,7 +218,8 @@ class XapianIndexer(Indexer):
             except UnicodeDecodeError, e:
                 print 'UnicodeDecodeError: %s'%(e)
     
-    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, flags=None):
+    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, \
+                     flags=None, stemming_lang=None):
         """ flags are as defined in the Xapian API :
             http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
             Combine multiple values with bitwise-or (|)."""
@@ -210,7 +245,7 @@ class XapianIndexer(Indexer):
                 valueno += 1
             enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
-        enquire.set_query(self.parse_query(query, idx, flags))
+        enquire.set_query(self.parse_query(query, idx, flags, stemming_lang))
         mset = enquire.get_mset(offset, limit)
         results = []
         for match in mset:
@@ -222,14 +257,14 @@ class XapianIndexer(Indexer):
         self.mset = mset
         return XapianResultSet(results,self)
 
-    def related(self, query, count = 10, flags=None):
+    def related(self, query, count = 10, flags=None, stemming_lang=None):
         ''' Returns the related tags'''
 
         # Open the database
         db = xapian.Database(self.path)
         enq = xapian.Enquire(db)
         # Making the search
-        enq.set_query(self.parse_query(query, db, flags))
+        enq.set_query(self.parse_query(query, db, flags, stemming_lang))
         res = enq.get_mset(0, 10)
         rset = xapian.RSet()
 
@@ -266,8 +301,7 @@ class XapianIndexer(Indexer):
         except (IOError, RuntimeError, xapian.DocNotFoundError), e:
             pass
 
-
-    def parse_query(self, term, db, flags=None):
+    def parse_query(self, term, db, flags=None, stemming_lang=None):
         """Parse Queries"""
         # Instance Xapian Query Parser
         query_parser = xapian.QueryParser()
@@ -279,8 +313,19 @@ class XapianIndexer(Indexer):
         query_parser.set_default_op(xapian.Query.OP_AND)
         
         # Stemming
-        if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
-            query_parser.set_stemmer(self._get_stemmer())
+        # See http://code.google.com/p/djapian/wiki/Stemming
+        # The stemming_lang parameter has priority; if it is defined, it is used.
+        # If not, the DJAPIAN_STEMMING_LANG variable from settings.py is used,
+        # if it is defined, not None, and not defined as "multi" (i.e. if it is
+        # defined as a language such as 'en' or 'french')
+        if stemming_lang is None:
+            if hasattr(settings, "DJAPIAN_STEMMING_LANG"):
+                if settings.DJAPIAN_STEMMING_LANG is not None:
+                    if settings.DJAPIAN_STEMMING_LANG != "multi":
+                        stemming_lang = settings.DJAPIAN_STEMMING_LANG
+        
+        if stemming_lang is not None:
+            query_parser.set_stemmer(xapian.Stem(stemming_lang))
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
         
         if flags is not None:
