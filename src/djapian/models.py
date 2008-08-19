@@ -10,10 +10,6 @@ class Change(models.Model):
     is_deleted = models.BooleanField(default=False)
     # We need sort the changes by date
     added = models.DateTimeField(auto_now_add=True, db_index=True)
-
-    class Admin:
-        """Set what's displayed in admin"""
-        list_display = ('model', 'did', 'is_deleted', 'added')
         
     def __unicode__(self):
         return u'%s#%d To delete:%s, added in %s'%(self.model, self.did, self.is_deleted, self.added)
