@@ -122,7 +122,7 @@ class Indexer(object):
             #
             for field in fields: 
                 if isinstance(field, (tuple, list)):
-                    self.add_weigth(field[0], field[1], is_prefix=False)
+                    self.add_weight(field[0], field[1], is_prefix=False)
                     new_fields.append(field[0])
                 else:
                     new_fields.append(field)
@@ -143,7 +143,7 @@ class Indexer(object):
         for prefix in attributes:
             field = attributes[prefix]
             if isinstance(field, (tuple, list)):
-                self.add_weigth(field[0], field[1], is_prefix=True)
+                self.add_weight(field[0], field[1], is_prefix=True)
                 attributes[prefix] = field[0]
                 
         if namespace is None:
@@ -196,7 +196,7 @@ class Indexer(object):
         else:
             self.text_fields.add(field)
 
-    def add_weigth(self, field, weight, is_prefix=False):
+    def add_weight(self, field, weight, is_prefix=False):
         '''Set to a weight for the words in the index, so those words will 
         increase the score of the document when it's hitted.
         
