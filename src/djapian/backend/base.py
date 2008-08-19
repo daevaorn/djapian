@@ -168,8 +168,8 @@ class Indexer(object):
         # 
         # Connect to dispatcher
         #
-        dispatcher.connect(receiver=post_save, signal=signals.post_save, sender=self.model)
-        dispatcher.connect(receiver=pre_delete, signal=signals.pre_delete, sender=self.model)
+        signals.post_save.connect(post_save, sender=self.model)
+        signals.pre_delete.connect(pre_delete, sender=self.model)
         
     def add_field(self, field, name=None, namespace=None):
         """Add the given field to the Indexer, where `field` is either
