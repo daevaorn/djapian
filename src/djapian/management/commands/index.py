@@ -1,8 +1,12 @@
-#!/.../python
+# -*- coding: utf-8 -*-
+from django.core.management.base import BaseCommand
+
 import os
 import sys
 import time
-from optparse import OptionParser
+from datetime import datetime
+from optparse import make_option
+
 from djapian import djapian_import
 from djapian.models import Change
 
@@ -60,32 +64,22 @@ def update_changes(verbose, timeout):
             print '\033[0;0m'
         time.sleep(timeout)
 
-
-def create_opt_parser():
-    # Construct usage string
-    usage = "%prog [-h] [-n] [-v]\n"
-    usage += "This is the Djapian daemon used to update the index based on djapian_change table."
+class Command(BaseCommand):
+    option_list = BaseCommand.option_list + (
+        make_option('--verbosity', action='store_true', dest='verbosity', default=False,
+            help='Verbosity output'),
+        make_option("--no-fork", dest="no_fork", default=False,
+                    action="store_true", help="do not fork the process"),
+        make_option("--time-out", dest="timeout", default=10,
+            type="int", help="time to sleep between each query to the database (default: %default)"),
+    )
+    help = "This is the Djapian daemon used to update the index based on djapian_change table."
     
-    # Construct OptionParser object
-    optparser = OptionParser(usage=usage)
-    optparser.add_option("-v", "--verbose", dest="verbose", default=False,
-                        action="store_true", help="print execution details")
-    optparser.add_option("-n", "--no-fork", dest="no_fork", default=False,
-                        action="store_true", help="do not fork the process")
-    optparser.add_option("-t", "--time-out", dest="timeout", default=10,
-                        type="int", help="time to sleep between each query to the database (default: %default)")
-    
-    return optparser
+    requires_model_validation = True
 
-
-def main():
-    optparser = create_opt_parser()
-    (options, args) = optparser.parse_args()
-    
-    if not options.no_fork:
-        if os.fork() <> 0:
-            sys.exit(0)
-    update_changes(options.verbose, options.timeout)
-
-if __name__ == '__main__':
-    main()
+    def handle(self, verbosity, no_fork, timeout, *args, **options):
+        if not no_fork:
+            if os.fork() <> 0:
+                sys.exit(0)
+            
+        update_changes(verbosity, timeout)
