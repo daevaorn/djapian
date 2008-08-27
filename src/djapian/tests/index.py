@@ -25,4 +25,4 @@ class IndexCommandTest(BaseTestCase):
         call_command("index", no_fork=True, once=True)
 
     def test_database(self):
-        self.assertEqual(Entry.indexer.document_count(), 2)
+        self.assertEqual(Entry.indexer.document_count(), 1)
