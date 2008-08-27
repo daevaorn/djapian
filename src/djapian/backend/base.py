@@ -2,7 +2,6 @@
 import datetime
 
 from django.db import models
-from django.contrib.contenttypes.models import ContentType
 from django.utils.itercompat import is_iterable
 
 # Handle the signals of Django
@@ -104,9 +103,7 @@ class BaseIndexer(object):
                 raise ValueError()
 
         self.model = model
-
-        ct = ContentType.objects.get_for_model(model)
-        self.model_name = ".".join([ct.app_label, ct.model])
+        self.model_name = ".".join([model._meta.app_label, model._meta.object_name.lower()])
 
         if not self.path:
             # If no path specified we will create
