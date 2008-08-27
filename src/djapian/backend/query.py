@@ -4,7 +4,6 @@ class QueryParser(object):
     # TODO: Make a common query language for all the backends.
     pass
 
-
 class ResultSet(object):
     def __iter__(self):
         raise NotImplementedError
@@ -15,11 +14,10 @@ class ResultSet(object):
     def __getitem__(self,pos):
         raise NotImplementedError
 
-
 class Hit(object):
-    def __init__(self, data, indexer, model):
+    def __init__(self, data, indexer):
         self.indexer = indexer
-        self.model = model
+        self.model = indexer.model
         self.data = data
 
     def get_instance(self):
@@ -31,11 +29,8 @@ class Hit(object):
 
     def get_pk(self):
         raise NotImplementedError
-    
-    def get_object(self):
-        return self.model.objects.get(pk=self.get_pk())
 
     def __repr__(self):
-        return "<%s: Model:%s pk:%s, Score:%s>" % (self.__class__.__name__,
+        return "<%s: Model:%s pk:%s, Score:%s>" % (self.indexer.model_name,
                                            self.model._meta,
                                            self.get_pk(), self.score)

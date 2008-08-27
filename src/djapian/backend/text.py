@@ -1,10 +1,10 @@
 # -*- encoding: utf-8 -*-
 """
 This module is useful for those live in latin-based countries (like me in Brazil)
-and allow you to index words 'caminhão' as 'caminhao', because users can don't 
+and allow you to index words 'caminhão' as 'caminhao', because users can don't
 write accents
 
-WARING: This was not tested with japanese/chinese/korean/you-understand characters
+WARNING: This was not tested with japanese/chinese/korean/you-understand characters
 """
 import re
 import string
