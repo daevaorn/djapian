@@ -50,6 +50,10 @@ entry_indexer = Indexer(
                         ("count",   "asset_count" ),
                         ("editors", "editors"     )
                     ],
+                    aliases={
+                        "title": "subject",
+                        "author": "user",
+                    },
                     trigger=lambda obj: obj.is_active,
             )
 
