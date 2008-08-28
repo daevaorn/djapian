@@ -304,6 +304,9 @@ class Indexer(BaseIndexer):
 
         for field in self.tags_fields:
             query_parser.add_prefix(field.prefix.lower(), field.prefix.upper())
+            if field.prefix in self.aliases:
+                for alias in self.aliases[field.prefix]:
+                    query_parser.add_prefix(alias, field.prefix.upper())
 
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)

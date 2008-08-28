@@ -47,7 +47,7 @@ class BaseIndexer(object):
 
     def __init__(self, model, path=None, fields=None, tags=[],
                        stemming_lang_accessor="get_stemming_lang", trigger=lambda obj: True,
-                       model_attr_name="indexer"):
+                       model_attr_name="indexer", aliases={}):
         """Initialize an Indexer whose index data is stored at `path`.
         `model` is the Model (or string name of the model) whose instances will
         be used as documents. Note that fields from other models can still be
@@ -65,6 +65,8 @@ class BaseIndexer(object):
 
         self.stemming_lang_accessor = stemming_lang_accessor
         self.add_database = set()
+        
+        self.aliases={}
         #
         # Parse fields
         #
@@ -101,6 +103,15 @@ class BaseIndexer(object):
 
             if not model:#It isn't django model
                 raise ValueError()
+            
+        for tag, aliases in aliases.iteritems():
+            if self.has_tag(tag):
+                if not isinstance(aliases, (list, tuple)):
+                    aliases = (aliases,)
+                self.aliases[tag] = aliases
+            else:
+                raise ValueError("Cannot create alias for tag %s that doesn't exist")
+                    
 
         self.model = model
         self.model_name = ".".join([model._meta.app_label, model._meta.object_name.lower()])
@@ -124,7 +135,14 @@ class BaseIndexer(object):
 
         signals.post_save.connect(post_save, sender=self.model)
         signals.pre_delete.connect(pre_delete, sender=self.model)
-
+    
+    def has_tag(self, name):
+        for field in self.tags_fields:
+            if field.prefix == name:
+                return True
+    
+        return False
+    
     def add_field(self, path, weight=DEFAULT_WEIGHT, prefix=None):
         field = self.field_class(path, weight, prefix)
         if prefix:

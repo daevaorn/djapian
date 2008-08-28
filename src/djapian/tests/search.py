@@ -23,7 +23,7 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
         self.assert_(self.result[0].search_data.score in (99, 100))
 
 
-class ResultSetPaginationTest(BaseTestCase):
+class ResultSetPaginationTest(TestCase):
     num_entries = 100
     per_page = 10
     num_pages = num_entries / per_page
@@ -46,3 +46,19 @@ class ResultSetPaginationTest(BaseTestCase):
         self.assertEqual(paginator.num_pages, self.num_pages)
 
         page = paginator.page(5)
+        
+class AliasesTest(TestCase):
+    num_entries = 10
+    
+    def setUp(self):
+        p = Person.objects.create(name="Alex")
+
+        for i in range(self.num_entries):
+            Entry.objects.create(author=p, title="Entry with number %s" % i, text="foobar " * i)
+
+        Entry.indexer.update()
+        
+        self.result = Entry.indexer.search("subject:number", return_objects=True)
+        
+    def test_pagintion(self):
+        self.assertEqual(len(self.result), 10)
