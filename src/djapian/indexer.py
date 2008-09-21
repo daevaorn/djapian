@@ -1,81 +1,217 @@
 # -*- encoding: utf-8 -*-
+#from datetime import datetime
+import datetime
 import os
-from datetime import datetime
 
 from django.db import models
+from django.utils.itercompat import is_iterable
+from djapian.signals import post_save, pre_delete
 from django.conf import settings
 from django.utils.encoding import smart_unicode
 
-from djapian.backend.text import Text
-from djapian.backend.query import ResultSet, Hit
-from djapian.backend.base import BaseIndexer, Field
-
+from djapian.utils import Text
+from djapian.resultset import XapianResultSet, XapianResultObjectSet, XapianHit
+from djapian.stemmer import DjapianStemmer
 try:
     import xapian
 except ImportError:
     raise ImportError("Xapian python bindings must be installed \
 to use Djapian")
 
-DEFAULT_STEMMING_LANG = getattr(settings, "DJAPIAN_STEMMING_LANG", "none")
-
 UID_VALUE_NUMBER = 1
 MODEL_VALUE_NUMBER = 2
+DEFAULT_WEIGHT = 1
 
+class Field(object):
+    raw_types = (int, long, float, basestring, bool,
+                 datetime.time, datetime.date, datetime.datetime)
 
-class DjapianStemmer(object):
+    def __init__(self, path, weight=DEFAULT_WEIGHT, prefix=None):
+        self.path = path
+        self.weight = weight
+        self.prefix = prefix
 
-    def __init__(self, instance, stemming_lang_accessor = "get_stemming_lang"):
-        """ Construct a stemmer tailored for a particular model
-            instance to index. """
+    def resolve(self, value):
+        bits = self.path.split(".")
 
-        self.stemming_lang_accessor = stemming_lang_accessor
+        for bit in bits:
+            try:
+                value = getattr(value, bit)
+            except AttributeError:
+                raise
 
-        language = None
+            if callable(value):
+                try:
+                    value = value()
+                except TypeError:
+                    raise
 
-        # A per-model language setting is used
-        if DEFAULT_STEMMING_LANG == "multi":
-            language = self._get_lang_from_model(instance)
-        # Use the language defined in DJAPIAN_STEMMING_LANG
-        else:
-            language = DEFAULT_STEMMING_LANG
+        if isinstance(value, self.raw_types):
+            return value
+        elif is_iterable(value):
+            return ", ".join(value)
+        elif isinstance(value, models.Manager):
+            return ", ".join(value.all())
+        return None
 
-        try:
-            self.stemmer = xapian.Stem(language)
-        except xapian.InvalidArgumentError, e:
-            print "%s; disabling stemming for this document." % e
-            self.stemmer = xapian.Stem("none")
-
-    def stem_word(self, word):
-        """ Return the stemmed form of a word """
-        # This is the strangeness of the Xapian API which uses the () operator
-        # to stem a word
-        return self.stemmer(word)
-
-    def stem_word_for_indexing(self, word):
-        """ Return the stemmed form of a word with prefix for indexing """
-        # We must prefix the stemmed form of the word with Z,
-        # because the QueryParser add this prefix to each stemmed
-        # words when it stems a search query.
-        return "Z" + self.stem_word(word)
-
-    def _get_lang_from_model(self, path, instance):
-        """ Get the language from the Django model instance we are indexing.
-            The language will be obtained if an accessor called by default
-            'get_stemming_lang' is defined on the model. """
-        from djapian.backend.base import Field
-        try:
-            return Field(path).resolve(instance)
-        except AttributeError:
-            # No language defined
-            return None
-
-
-class Indexer(BaseIndexer):
+class Indexer(object):
+    field_class = Field
     free_values_start_number = 11
 
-    def __init__(self, *args, **kwargs):
-        super(Indexer, self).__init__(*args, **kwargs)
+    def __init__(self, model, path=None, fields=None, tags=[],
+                       stemming_lang_accessor="get_stemming_lang", trigger=lambda obj: True,
+                       model_attr_name="indexer", aliases={}):
+        """Initialize an Indexer whose index data is stored at `path`.
+        `model` is the Model (or string name of the model) whose instances will
+        be used as documents. Note that fields from other models can still be
+        used in the index, but this model will be the one returned from search
+        results.
+        `fields` may be optionally initialized as an iterable of unnamed Fields.
+        `attributes` may be optionally initialized as a mapping of field names
+        to Fields.
+        """
+        self.raw_fields = [] # Simple text fields
+        self.tags_fields = [] # Prefixed fields
+
+        self.path = path
+        self.trigger = trigger
+
+        self.stemming_lang_accessor = stemming_lang_accessor
+        self.add_database = set()
+
+        self.aliases={}
+        #
+        # Parse fields
+        #
+        if isinstance(fields, (tuple, list)):
+            #
+            # For each field checks if it is a tuple or a list and add it's
+            # weight
+            #
+            for field in fields:
+                if isinstance(field, (tuple, list)):
+                    self.add_field(field[0], field[1])
+                else:
+                    self.add_field(field)
+
+        elif isinstance(fields, basestring):
+            self.add_field(fields)
+
+        #
+        # Parse prefixed fields
+        #
+        for field in tags:
+            tag, path = field[:2]
+            if len(field) == 3:
+                weight = field[2]
+            else:
+                weight = DEFAULT_WEIGHT
+
+            self.add_field(path, weight, prefix=tag)
+
+        if isinstance(model, basestring):
+            app, name = models.split('.')
+
+            model = models.get_model(app, name)
+
+            if not model:#It isn't django model
+                raise ValueError()
+
+        for tag, aliases in aliases.iteritems():
+            if self.has_tag(tag):
+                if not isinstance(aliases, (list, tuple)):
+                    aliases = (aliases,)
+                self.aliases[tag] = aliases
+            else:
+                raise ValueError("Cannot create alias for tag %s that doesn't exist")
+
+
+        self.model = model
+        self.model_name = ".".join([model._meta.app_label, model._meta.object_name.lower()])
+
+        if not self.path:
+            # If no path specified we will create
+            # for each model its own database
+            import os
+            self.path = os.path.join(*self.model_name.split('.'))
+
+        if isinstance(model, models.Model):
+            if "indexer" not in model._meta.__dict__:
+                setattr(model._meta, "indexer", self)
+            else:
+                raise ValueError("Another indexer registered for %s" % model)
+
+        if model_attr_name not in model.__dict__:
+            setattr(model, model_attr_name, self)
+        else:
+            raise ValueError("Attribute with name %s is already exsits" % model_attr_name)
+
+        models.signals.post_save.connect(post_save, sender=self.model)
+        models.signals.pre_delete.connect(pre_delete, sender=self.model)
+
         self.values_nums = [field.prefix for field in self.tags_fields]
+
+    def has_tag(self, name):
+        for field in self.tags_fields:
+            if field.prefix == name:
+                return True
+
+        return False
+
+    def add_field(self, path, weight=DEFAULT_WEIGHT, prefix=None):
+        field = self.field_class(path, weight, prefix)
+        if prefix:
+            self.tags_fields.append(field)
+        else:
+            self.raw_fields.append(field)
+
+    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, \
+                     flags=None, stemming_lang=None, return_objects=False):
+        """
+        flags are as defined in the Xapian API :
+        http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
+        Combine multiple values with bitwise-or (|).
+        """
+        database = xapian.Database(self.get_full_database_path())
+        for path in self.add_database:
+            database.add_database(xapian.Database(path))
+        enquire = xapian.Enquire(database)
+
+        if order_by == 'RELEVANCE':
+            enquire.set_sort_by_relevance()
+        else:
+            ascending = False
+            if isinstance(order_by, basestring) and order_by.startswith('-'):
+                ascending = True
+
+            if order_by[0] in '+-':
+                order_by = order_by[1:]
+
+            try:
+                valueno = self.free_values_start_number + \
+self.values_nums.index(order_by)
+            except ValueError:
+                raise ValueError("Field %s cannot be used in order_by clause \
+because it doen't exist in index")
+            enquire.set_sort_by_value_then_relevance(valueno, ascending)
+
+        enquire.set_query(self.parse_query(query, database,
+                                           flags, stemming_lang))
+        mset = enquire.get_mset(offset, limit)
+        results = []
+        for match in mset:
+            results.append({
+                'score': match[xapian.MSET_PERCENT],
+                'uid': match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
+                'model': match[xapian.MSET_DOCUMENT].get_value(
+                                                         MODEL_VALUE_NUMBER),
+            })
+        self.mset = mset
+
+        if return_objects:
+            return XapianResultObjectSet(results, self)
+        else:
+            return XapianResultSet(results, self)
 
     def update(self, documents=None):
         '''Update the database with the documents.
@@ -223,54 +359,6 @@ class Indexer(BaseIndexer):
 
         return values, terms
 
-    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, \
-                     flags=None, stemming_lang=None, return_objects=False):
-        """
-        flags are as defined in the Xapian API :
-        http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
-        Combine multiple values with bitwise-or (|).
-        """
-        database = xapian.Database(self.get_full_database_path())
-        for path in self.add_database:
-            database.add_database(xapian.Database(path))
-        enquire = xapian.Enquire(database)
-
-        if order_by == 'RELEVANCE':
-            enquire.set_sort_by_relevance()
-        else:
-            ascending = False
-            if isinstance(order_by, basestring) and order_by.startswith('-'):
-                ascending = True
-
-            if order_by[0] in '+-':
-                order_by = order_by[1:]
-
-            try:
-                valueno = self.free_values_start_number + \
-self.values_nums.index(order_by)
-            except ValueError:
-                raise ValueError("Field %s cannot be used in order_by clause \
-because it doen't exist in index")
-            enquire.set_sort_by_value_then_relevance(valueno, ascending)
-
-        enquire.set_query(self.parse_query(query, database,
-                                           flags, stemming_lang))
-        mset = enquire.get_mset(offset, limit)
-        results = []
-        for match in mset:
-            results.append({
-                'score': match[xapian.MSET_PERCENT],
-                'uid': match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
-                'model': match[xapian.MSET_DOCUMENT].get_value(
-                                                         MODEL_VALUE_NUMBER),
-            })
-        self.mset = mset
-
-        if return_objects:
-            return XapianResultObjectSet(results, self)
-        else:
-            return XapianResultSet(results, self)
-
     def related(self, query, count = 10, flags=None, stemming_lang=None):
         ''' Returns the related tags'''
 
@@ -384,65 +472,3 @@ because it doen't exist in index")
             os.rmdir(path)
         except OSError:
             pass
-
-
-class XapianResultSet(ResultSet):
-
-    def __init__(self, hits, indexer):
-        self._hits = hits
-        self._indexer = indexer
-
-    def __len__(self):
-        return self._indexer.mset.get_matches_estimated()
-
-    count = __len__
-
-    def _get_item(self, hit):
-        return XapianHit(hit, self._indexer)
-
-    def _iterate(self):
-        for hit in self._hits:
-            yield XapianHit(hit, self._indexer)
-
-    def __iter__(self):
-        return self._iterate()
-
-    def __getitem__(self, pos):
-        '''Allow use index-based access'''
-        return self._get_item(self._hits[pos])
-
-    def __getslice__(self, start, end):
-        '''Allows use slices to retrive the information
-        WARNING: This returns a generator, not a "list"
-        '''
-        return self.__class__(self._hits[start:end], self._indexer)
-
-
-class XapianResultObjectSet(XapianResultSet):
-
-    def _get_item(self, hit, instance=None):
-        if not instance:
-            instance = self._indexer.model.objects.get(pk=hit['uid'])
-        instance.search_data = XapianHit(hit, self._indexer)
-        return instance
-
-    def _iterate(self):
-        pks = [hit['uid'] for hit in self._hits]
-        query_set = self._indexer.model.objects.filter(pk__in=pks)
-
-        for i, row in enumerate(query_set):
-            yield self._get_item(self._hits[i], row)
-
-
-class XapianHit(Hit):
-
-    def get_pk(self):
-        return self.data['uid']
-
-    def __getitem__(self, item):
-        return self.data[item]
-
-    def get_score(self):
-        return self.data['score']
-
-    score = property(get_score)
