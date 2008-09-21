@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 from django.test import TestCase
-
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
 
+
 class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
+
     def setUp(self):
         super(IndexerSearchTextTest, self).setUp()
         self.result = Entry.indexer.search("text", return_objects=True)
@@ -32,7 +33,9 @@ class ResultSetPaginationTest(TestCase):
         p = Person.objects.create(name="Alex")
 
         for i in range(self.num_entries):
-            Entry.objects.create(author=p, title="Entry with number %s" % i, text="foobar " * i)
+            Entry.objects.create(author=p,
+                                 title="Entry with number %s" % i,
+                                 text="foobar " * i)
 
         Entry.indexer.update()
 

@@ -5,14 +5,18 @@ from djapian import Field
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
 from djapian.models import Change
 
+
 class IndexerTest(BaseTestCase):
+
     def test_text_fields_count(self):
         self.assertEqual(len(Entry.indexer.raw_fields), 1)
 
     def test_attributes_count(self):
         self.assertEqual(len(Entry.indexer.tags_fields), 7)
 
+
 class FieldResolverTest(BaseTestCase):
+
     def setUp(self):
         p = Person.objects.create(name="Alex")
         self.entry = Entry.objects.create(author=p, title="Test entry")
@@ -24,20 +28,27 @@ class FieldResolverTest(BaseTestCase):
         self.assertEqual(Field("author.name").resolve(self.entry), "Alex")
 
     def test_method(self):
-        self.assertEqual(Field("headline").resolve(self.entry), "Alex - Test entry")
+        self.assertEqual(Field("headline").resolve(self.entry),
+                         "Alex - Test entry")
+
 
 class ChangeTrackingTest(BaseTestCase):
+
     def setUp(self):
         p = Person.objects.create(name="Alex")
         Entry.objects.create(author=p, title="Test entry")
-        Entry.objects.create(author=p, title="Another test entry", is_active=False)
+        Entry.objects.create(author=p,
+                             title="Another test entry",
+                             is_active=False)
 
     def test_change_count(self):
         from djapian.models import Change
 
         self.assertEqual(Change.objects.count(), 2)
 
+
 class ChangeTrackingUpdateTest(BaseTestCase):
+
     def setUp(self):
         p = Person.objects.create(name="Alex")
         entry = Entry.objects.create(author=p, title="Test entry")
@@ -51,7 +62,9 @@ class ChangeTrackingUpdateTest(BaseTestCase):
     def test_change_action(self):
         self.assertEqual(Change.objects.get().action, "add")
 
+
 class ChangeTrackingDeleteTest(BaseTestCase):
+
     def setUp(self):
         p = Person.objects.create(name="Alex")
         entry = Entry.objects.create(author=p, title="Test entry")

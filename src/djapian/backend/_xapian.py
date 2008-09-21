@@ -13,16 +13,20 @@ from djapian.backend.base import BaseIndexer, Field
 try:
     import xapian
 except ImportError:
-    raise ImportError("Xapian python bindings must be installed to use Djapian")
+    raise ImportError("Xapian python bindings must be installed \
+to use Djapian")
 
 DEFAULT_STEMMING_LANG = getattr(settings, "DJAPIAN_STEMMING_LANG", "none")
 
 UID_VALUE_NUMBER = 1
 MODEL_VALUE_NUMBER = 2
 
-class DjapianStemmer:
+
+class DjapianStemmer(object):
+
     def __init__(self, instance, stemming_lang_accessor = "get_stemming_lang"):
-        """ Construct a stemmer tailored for a particular model instance to index. """
+        """ Construct a stemmer tailored for a particular model
+            instance to index. """
 
         self.stemming_lang_accessor = stemming_lang_accessor
 
@@ -65,6 +69,7 @@ class DjapianStemmer:
             # No language defined
             return None
 
+
 class Indexer(BaseIndexer):
     free_values_start_number = 11
 
@@ -77,16 +82,18 @@ class Indexer(BaseIndexer):
         There are some default value and terms in a document:
          * Values:
            1. Used to store the ID of the document
-           2. Store the model of the object (in the string format, like "project.app.model")
+           2. Store the model of the object (in the string format, like
+              "project.app.model")
            3..10. Free
 
          * Terms
-           UID: Used to store the ID of the document, so we can replace the document by the ID
+           UID: Used to store the ID of the document, so we can replace
+                the document by the ID
         '''
         # Open Xapian Database
         database = xapian.WritableDatabase(
                     self.get_full_database_path(),
-                    xapian.DB_CREATE_OR_OPEN
+                    xapian.DB_CREATE_OR_OPEN,
                 )
 
         # If doesnt have any document get all
@@ -111,14 +118,16 @@ class Indexer(BaseIndexer):
             self._process_tags_fields(database, obj, doc, stemmer)
 
             database.replace_document("UID%s" % obj._get_pk_val(), doc)
-            #FIXME: ^ may raise InvalidArgumentError when word in text larger than 255 simbols
+            #FIXME: ^ may raise InvalidArgumentError when word in
+            #         text larger than 255 simbols
         database.flush()
         del database
 
     def add_posting(self, database, doc, stemmer, posting, field, prefix=None):
         for field_v in Text().split(posting):
             field_v = field_v.lower()
-            # A posting is an instance of a particular term indexing the document
+            # A posting is an instance of a particular term
+            # indexing the document
             # See http://www.xapian.org/docs/glossary.html
             # Index both the term and it's stemmed form
             for term in (field_v, stemmer.stem_word_for_indexing(field_v)):
@@ -127,7 +136,7 @@ class Indexer(BaseIndexer):
                 doc.add_posting(
                     term,          # Term
                     self.position, # Position,
-                    field.weight   # Weight
+                    field.weight,   # Weight
                 )
             database.add_spelling(field_v)
             self.position += 1
@@ -142,7 +151,9 @@ class Indexer(BaseIndexer):
             self.add_posting(database, doc, stemmer, posting, field)
 
     def _process_tags_fields(self, database, obj, doc, stemmer):
-        valueno = 11 # This is the valueno used to sort docs, the firsts 10 values are reserved for internal use
+        # This is the valueno used to sort docs, the firsts 10
+        # values are reserved for internal use
+        valueno = 11
         # Set all prefixed fields (as value and prefixed postings)
         for field in self.tags_fields:
             # content_type is used to determine the type of the
@@ -170,7 +181,8 @@ class Indexer(BaseIndexer):
             if not isinstance(field_value, unicode):
                 field_value = smart_unicode(field_value, 'utf-8')
 
-            self.add_posting(database, doc, stemmer, field_value, field, field.prefix)
+            self.add_posting(database, doc, stemmer,
+                             field_value, field, field.prefix)
 
     def parse_value(self, field_value, content_type):
         values = []
@@ -196,9 +208,9 @@ class Indexer(BaseIndexer):
             # DateTime fields are stored as %Y%m%d%H%M%S (better
             # sorting)
             #
-            terms.append('YEAR%d'  % field_value.year)
+            terms.append('YEAR%d' % field_value.year)
             terms.append('MONTH%d' % field_value.month)
-            terms.append('DAY%d'   %  field_value.day)
+            terms.append('DAY%d' % field_value.day)
             values.append(field_value.strftime('%Y%m%d%H%M%S'))
         else:
             try:
@@ -213,9 +225,11 @@ class Indexer(BaseIndexer):
 
     def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, \
                      flags=None, stemming_lang=None, return_objects=False):
-        """ flags are as defined in the Xapian API :
-            http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
-            Combine multiple values with bitwise-or (|)."""
+        """
+        flags are as defined in the Xapian API :
+        http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
+        Combine multiple values with bitwise-or (|).
+        """
         database = xapian.Database(self.get_full_database_path())
         for path in self.add_database:
             database.add_database(xapian.Database(path))
@@ -232,19 +246,23 @@ class Indexer(BaseIndexer):
                 order_by = order_by[1:]
 
             try:
-                valueno = self.free_values_start_number + self.values_nums.index(order_by)
+                valueno = self.free_values_start_number + \
+self.values_nums.index(order_by)
             except ValueError:
-                raise ValueError("Field %s cannot be used in order_by clause because it doen't exist in index")
+                raise ValueError("Field %s cannot be used in order_by clause \
+because it doen't exist in index")
             enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
-        enquire.set_query(self.parse_query(query, database, flags, stemming_lang))
+        enquire.set_query(self.parse_query(query, database,
+                                           flags, stemming_lang))
         mset = enquire.get_mset(offset, limit)
         results = []
         for match in mset:
             results.append({
-                'score':match[xapian.MSET_PERCENT],
-                'uid':  match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
-                'model':match[xapian.MSET_DOCUMENT].get_value(MODEL_VALUE_NUMBER)
+                'score': match[xapian.MSET_PERCENT],
+                'uid': match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
+                'model': match[xapian.MSET_DOCUMENT].get_value(
+                                                         MODEL_VALUE_NUMBER),
             })
         self.mset = mset
 
@@ -273,7 +291,7 @@ class Indexer(BaseIndexer):
         related_tag = []
 
         # List of tags
-        for  r in rel:
+        for r in rel:
             related_tag.append(r[0])
 
         del_list = []
@@ -291,7 +309,8 @@ class Indexer(BaseIndexer):
     def delete(self, doc_id):
         """Delete a document from Xapian"""
         try:
-            database = xapian.WritableDatabase(self.get_full_database_path(), xapian.DB_CREATE_OR_OPEN)
+            database = xapian.WritableDatabase(self.get_full_database_path(),
+                                               xapian.DB_CREATE_OR_OPEN)
             database.delete_document('UID%d' % doc_id)
             del database
         except (IOError, RuntimeError, xapian.DocNotFoundError), e:
@@ -313,7 +332,8 @@ class Indexer(BaseIndexer):
 
         # Stemming
         # See http://code.google.com/p/djapian/wiki/Stemming
-        # The stemming_lang parameter has priority; if it is defined, it is used.
+        # The stemming_lang parameter has priority; if it is
+        # defined, it is used.
         # If not, the DJAPIAN_STEMMING_LANG variable from settings.py is used,
         # if it is defined, not None, and not defined as "multi" (i.e. if it is
         # defined as a language such as 'en' or 'french')
@@ -365,13 +385,16 @@ class Indexer(BaseIndexer):
         except OSError:
             pass
 
+
 class XapianResultSet(ResultSet):
+
     def __init__(self, hits, indexer):
         self._hits = hits
         self._indexer = indexer
 
     def __len__(self):
         return self._indexer.mset.get_matches_estimated()
+
     count = __len__
 
     def _get_item(self, hit):
@@ -394,7 +417,9 @@ class XapianResultSet(ResultSet):
         '''
         return self.__class__(self._hits[start:end], self._indexer)
 
+
 class XapianResultObjectSet(XapianResultSet):
+
     def _get_item(self, hit, instance=None):
         if not instance:
             instance = self._indexer.model.objects.get(pk=hit['uid'])
@@ -408,7 +433,9 @@ class XapianResultObjectSet(XapianResultSet):
         for i, row in enumerate(query_set):
             yield self._get_item(self._hits[i], row)
 
+
 class XapianHit(Hit):
+
     def get_pk(self):
         return self.data['uid']
 
@@ -417,4 +444,5 @@ class XapianHit(Hit):
 
     def get_score(self):
         return self.data['score']
+
     score = property(get_score)
