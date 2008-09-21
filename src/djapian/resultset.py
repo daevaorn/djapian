@@ -11,11 +11,11 @@ class ResultSet(object):
     count = __len__
 
     def _get_item(self, hit):
-        return XapianHit(hit, self._indexer)
+        return Hit(hit, self._indexer)
 
     def _iterate(self):
         for hit in self._hits:
-            yield XapianHit(hit, self._indexer)
+            yield Hit(hit, self._indexer)
 
     def __iter__(self):
         return self._iterate()
@@ -35,7 +35,7 @@ class ResultObjectSet(ResultSet):
     def _get_item(self, hit, instance=None):
         if not instance:
             instance = self._indexer.model.objects.get(pk=hit['uid'])
-        instance.search_data = XapianHit(hit, self._indexer)
+        instance.search_data = Hit(hit, self._indexer)
         return instance
 
     def _iterate(self):
@@ -46,7 +46,7 @@ class ResultObjectSet(ResultSet):
             yield self._get_item(self._hits[i], row)
 
 
-class XapianHit(object):
+class Hit(object):
     def __init__(self, data, indexer):
         self.indexer = indexer
         self.model = indexer.model
