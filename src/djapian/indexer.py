@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils.encoding import smart_unicode
 
 from djapian.utils import Text
-from djapian.resultset import ResultSet, ResultObjectSet, XapianHit
+from djapian.resultset import ResultSet, ResultObjectSet, Hit
 from djapian.stemmer import Stemmer
 try:
     import xapian
