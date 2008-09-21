@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils.encoding import smart_unicode
 
 from djapian.utils import Text
-from djapian.resultset import XapianResultSet, XapianResultObjectSet, XapianHit
+from djapian.resultset import ResultSet, ResultObjectSet, XapianHit
 from djapian.stemmer import Stemmer
 try:
     import xapian
@@ -209,9 +209,9 @@ because it doen't exist in index")
         self.mset = mset
 
         if return_objects:
-            return XapianResultObjectSet(results, self)
+            return ResultObjectSet(results, self)
         else:
-            return XapianResultSet(results, self)
+            return ResultSet(results, self)
 
     def update(self, documents=None):
         '''Update the database with the documents.
