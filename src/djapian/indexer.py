@@ -11,7 +11,7 @@ from django.utils.encoding import smart_unicode
 
 from djapian.utils import Text
 from djapian.resultset import XapianResultSet, XapianResultObjectSet, XapianHit
-from djapian.stemmer import DjapianStemmer
+from djapian.stemmer import Stemmer
 try:
     import xapian
 except ImportError:
@@ -249,7 +249,7 @@ because it doen't exist in index")
             doc.add_value(MODEL_VALUE_NUMBER, self.model_name)
 
             self.position = 1
-            stemmer = DjapianStemmer(obj, self.stemming_lang_accessor)
+            stemmer = Stemmer(obj, self.stemming_lang_accessor)
             self._process_raw_fields(database, obj, doc, stemmer)
             self._process_tags_fields(database, obj, doc, stemmer)
 
