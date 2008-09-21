@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-class XapianResultSet(object):
+class ResultSet(object):
     def __init__(self, hits, indexer):
         self._hits = hits
         self._indexer = indexer
@@ -31,7 +31,7 @@ class XapianResultSet(object):
         return self.__class__(self._hits[start:end], self._indexer)
 
 
-class XapianResultObjectSet(XapianResultSet):
+class ResultObjectSet(ResultSet):
     def _get_item(self, hit, instance=None):
         if not instance:
             instance = self._indexer.model.objects.get(pk=hit['uid'])
