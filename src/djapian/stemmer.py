@@ -12,7 +12,7 @@ to use Djapian")
 
 DEFAULT_STEMMING_LANG = getattr(settings, "DJAPIAN_STEMMING_LANG", "none")
 
-class DjapianStemmer(object):
+class Stemmer(object):
     def __init__(self, instance, stemming_lang_accessor = "get_stemming_lang"):
         """ Construct a stemmer tailored for a particular model
             instance to index. """
