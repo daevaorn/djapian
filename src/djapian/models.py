@@ -5,12 +5,15 @@ from django.contrib.contenttypes import generic
 
 from datetime import datetime
 
+
 class ChangeManager(models.Manager):
+
     def create(self, object, action, **kwargs):
         ct = ContentType.objects.get_for_model(object.__class__)
 
         try:
-            old_change = self.get(content_type=ct, object_id=object._get_pk_val())
+            old_change = self.get(content_type=ct,
+                                  object_id=object._get_pk_val())
             if old_change.action=="add":
                 if action=="edit":
                     old_change.save()
@@ -27,23 +30,27 @@ class ChangeManager(models.Manager):
 
         return old_change
 
+
 class Change(models.Model):
-    ACTIOINS = (("add",    "object added"),
-                ("edit",   "object edited"),
+    ACTIOINS = (("add", "object added"),
+                ("edit", "object edited"),
                 ("delete", "object deleted"),
-            )
+               )
 
     content_type = models.ForeignKey(ContentType, db_index=True)
-    object_id    = models.PositiveIntegerField()
-    date         = models.DateTimeField(default=datetime.now)
-    action       = models.CharField(max_length=6, choices=ACTIOINS)
+    object_id = models.PositiveIntegerField()
+    date = models.DateTimeField(default=datetime.now)
+    action = models.CharField(max_length=6, choices=ACTIOINS)
 
     object = generic.GenericForeignKey()
 
     objects = ChangeManager()
 
     def __unicode__(self):
-        return u'%s#%d To action:`%s`, added on %s' % (self.content_type, self.object_id, self.action, self.date)
+        return u'%s#%d To action:`%s`, added on %s' % (self.content_type,
+                                                       self.object_id,
+                                                       self.action,
+                                                       self.date)
 
     def save(self):
         self.date = datetime.now()
@@ -67,7 +74,8 @@ class Change(models.Model):
                 try:
                     indexer.update([self.object])
                 except Exception, e:
-                    print 'Damn it! You are trying to index a bugged model: %s'%(e)
+                    print 'Damn it! You are trying to index a bugged \
+model: %s' % e
             except model.DoesNotExist:
                 pass
         return hash

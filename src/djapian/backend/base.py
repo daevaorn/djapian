@@ -10,6 +10,7 @@ from djapian.signals import post_save, pre_delete
 
 DEFAULT_WEIGHT = 1
 
+
 class Field(object):
     raw_types = (int, long, float, basestring, bool,
                  datetime.time, datetime.date, datetime.datetime)
