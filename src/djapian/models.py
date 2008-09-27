@@ -68,7 +68,7 @@ class Change(models.Model):
 
         # If was deleted, don't get info from database
         if self.action == "delete":
-            indexer.delete(change.object_id)
+            indexer.delete(self.object_id)
         elif self.action in ("add", "edit"):
             try:
                 try:
