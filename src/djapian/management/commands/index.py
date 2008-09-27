@@ -104,6 +104,6 @@ djapian_change table."
                no_fork=False, timeout=10,
                once=False, *args, **options):
         if not no_fork:
-            demonize()
+            daemonize()
 
         update_changes(verbosity, timeout, once)
