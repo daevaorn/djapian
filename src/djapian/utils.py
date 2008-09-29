@@ -15,6 +15,7 @@ import cPickle
 from htmlentitydefs import name2codepoint
 from base64 import decodestring, encodestring
 
+from django.contrib.contenttypes.models import ContentType
 
 class Text(object):
     """Parse texts in UTF-8"""
@@ -112,12 +113,23 @@ HTML(2): %s'%(name_func, msg))
 
         return text_utf8
 
+def process_instance(action, instance):
+    model = instance.__class__
+    hash = "%s:%s" % (ContentType.objects.get_for_model(model),
+                      instance._get_pk_val())
+    indexer = model.indexer
 
-def dumps(obj):
-    '''Return the encoded-serializated'''
-    return encodestring(cPickle.dumps(obj))
+    if not indexer.trigger(instance):
+        return hash
 
-
-def loads(str_):
-    '''Return a object deserializate-uncoded'''
-    return cPickle.loads(decodestring(str_))
+    if action == "delete":
+        indexer.delete(instance)
+    elif action in ("add", "edit"):
+        try:
+            try:
+                indexer.update([instance])
+            except Exception, e:
+                print 'Damn it! You are trying to index a bugged model: %s' % e
+        except model.DoesNotExist:
+            pass
+    return hash

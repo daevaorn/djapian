@@ -359,41 +359,6 @@ because it doen't exist in index")
 
         return values, terms
 
-    def related(self, query, count = 10, flags=None, stemming_lang=None):
-        ''' Returns the related tags'''
-
-        # Open the database
-        db = xapian.Database(self.path)
-        enq = xapian.Enquire(db)
-        # Making the search
-        enq.set_query(self.parse_query(query, db, flags, stemming_lang))
-        res = enq.get_mset(0, 10)
-        rset = xapian.RSet()
-
-        for x in res:
-            rset.add_document(x[xapian.MSET_DID])
-
-        # Get the tags
-        rel = enq.get_eset(100, rset)
-
-        related_tag = []
-
-        # List of tags
-        for r in rel:
-            related_tag.append(r[0])
-
-        del_list = []
-        # Making the negative list
-        for p in related_tag:
-            if p[0] in string.ascii_uppercase:
-                del_list.append(p)
-
-        # Removing the not permited tags from the list
-        for x in del_list:
-            related_tag.remove(x)
-
-        return related_tag[:count]
-
     def delete(self, doc_id):
         """Delete a document from Xapian"""
         try:

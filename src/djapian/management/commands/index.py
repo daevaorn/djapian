@@ -6,13 +6,9 @@ import sys
 import time
 from datetime import datetime
 from optparse import make_option
-try:
-    set
-except NameError:
-    from sets import Set as set
 
 from djapian.models import Change
-
+from djapian import utils
 
 def do_fork():
     try:
@@ -25,19 +21,14 @@ def do_fork():
 
     return 0
 
-
 def daemonize():
     do_fork()
     do_fork()
 
-
 def update_changes(verbose, timeout, once):
-
     while True:
         changes = Change.objects.all().order_by("-date")
         objs_count = changes.count()
-
-        #handled_objects = set()
 
         if verbose:
             remain = float(objs_count)
@@ -48,7 +39,6 @@ def update_changes(verbose, timeout, once):
         # The objects must be sorted by date
         for change in changes:
             hash = change.process()
-            #handled_objects.add(hash)
             change.delete()
 
             if verbose:
@@ -69,41 +59,47 @@ def update_changes(verbose, timeout, once):
 
         time.sleep(timeout)
 
+def rebuild(verbosity):
+    from django.db.models import get_models
+
+    for model in get_models():
+        if hasattr(model, "indexer"):
+            for obj in model._default_manager.all():
+                utils.process_instance("add", obj)
 
 class Command(BaseCommand):
-
     option_list = BaseCommand.option_list + (
         make_option('--verbosity',
                     action='store_true',
-                    dest='verbosity',
                     default=False,
                     help='Verbosity output'),
-        make_option("--no-fork",
-                    dest="no_fork",
+        make_option("--daemonize",
                     default=False,
                     action="store_true",
-                    help="do not fork the process"),
+                    help="Do not fork the process"),
         make_option("--time-out",
                     dest="timeout",
                     default=10,
                     type="int",
-                    help="time to sleep between each query to the database \
+                    help="Time to sleep between each query to the database \
 (default: %default)"),
-        make_option("--run-once",
-                    dest="once",
+        make_option("--rebuild",
+                    dest="rebuild",
                     default=False,
                     action="store_true",
-                    help="run indexer one time"),
+                    help="Rebuild index database"),
     )
     help = "This is the Djapian daemon used to update the index based on \
 djapian_change table."
 
     requires_model_validation = True
 
-    def handle(self, verbosity=False,
-               no_fork=False, timeout=10,
-               once=False, *args, **options):
-        if not no_fork:
+    def handle(self, verbosity=False, daemonize=False, timeout=10,
+               rebuild=False, *args, **options):
+        if daemonize:
             daemonize()
 
-        update_changes(verbosity, timeout, once)
+        if rebuild:
+            rebuild(verbosity)
+        else:
+            update_changes(verbosity, timeout, not daemonize)

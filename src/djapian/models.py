@@ -5,6 +5,7 @@ from django.contrib.contenttypes import generic
 
 from datetime import datetime
 
+from djapian import utils
 
 class ChangeManager(models.Manager):
 
@@ -58,27 +59,7 @@ class Change(models.Model):
         super(Change, self).save()
 
     def process(self):
-        hash = "%s:%s" % (self.content_type, self.object_id)
-
-        model = self.content_type.model_class()
-        indexer = model.indexer
-
-        if not indexer.trigger(self.object):
-            return hash
-
-        # If was deleted, don't get info from database
-        if self.action == "delete":
-            indexer.delete(self.object_id)
-        elif self.action in ("add", "edit"):
-            try:
-                try:
-                    indexer.update([self.object])
-                except Exception, e:
-                    print 'Damn it! You are trying to index a bugged \
-model: %s' % e
-            except model.DoesNotExist:
-                pass
-        return hash
+        return utils.process_instance(self.action, self.object)
 
     class Meta:
         unique_together = [("content_type", "object_id")]
