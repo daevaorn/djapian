@@ -74,6 +74,7 @@ class Command(BaseCommand):
                     default=False,
                     help='Verbosity output'),
         make_option("--daemonize",
+                    dest="make_daemon",
                     default=False,
                     action="store_true",
                     help="Do not fork the process"),
@@ -84,7 +85,7 @@ class Command(BaseCommand):
                     help="Time to sleep between each query to the database \
 (default: %default)"),
         make_option("--rebuild",
-                    dest="rebuild",
+                    dest="rebuild_index",
                     default=False,
                     action="store_true",
                     help="Rebuild index database"),
@@ -94,12 +95,12 @@ djapian_change table."
 
     requires_model_validation = True
 
-    def handle(self, verbosity=False, daemonize=False, timeout=10,
-               rebuild=False, *args, **options):
-        if daemonize:
+    def handle(self, verbosity=False, make_daemon=False, timeout=10,
+               rebuild_index=False, *args, **options):
+        if make_daemon:
             daemonize()
 
-        if rebuild:
+        if rebuild_index:
             rebuild(verbosity)
         else:
             update_changes(verbosity, timeout, not daemonize)
