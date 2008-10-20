@@ -29,6 +29,18 @@ class ResultSet(object):
         WARNING: This returns a generator, not a "list"
         '''
         return self.__class__(self._hits[start:end], self._indexer)
+    
+    def order_by(self, by):
+        pass
+    
+    def limit(self, start, count):
+        pass
+    
+    def _clone(self):
+        pass
+    
+    def _perform_search(self):
+        pass
 
 
 class ResultObjectSet(ResultSet):
