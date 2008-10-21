@@ -135,12 +135,6 @@ class Indexer(object):
             import os
             self.path = os.path.join(*self.model_name.split('.'))
 
-        if isinstance(model, models.Model):
-            if "indexer" not in model._meta.__dict__:
-                setattr(model._meta, "indexer", self)
-            else:
-                raise ValueError("Another indexer registered for %s" % model)
-
         if model_attr_name not in model.__dict__:
             setattr(model, model_attr_name, self)
         else:
