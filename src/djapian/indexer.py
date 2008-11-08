@@ -15,8 +15,8 @@ from djapian.stemmer import Stemmer
 try:
     import xapian
 except ImportError:
-    raise ImportError("Xapian python bindings must be installed \
-to use Djapian")
+    raise ImportError("Xapian python bindings must be"
+                      " installed to use Djapian")
 
 UID_VALUE_NUMBER = 1
 MODEL_VALUE_NUMBER = 2
@@ -182,11 +182,10 @@ class Indexer(object):
                 order_by = order_by[1:]
 
             try:
-                valueno = self.free_values_start_number + \
-self.values_nums.index(order_by)
+                valueno = self.free_values_start_number + self.values_nums.index(order_by)
             except ValueError:
-                raise ValueError("Field %s cannot be used in order_by clause \
-because it doen't exist in index")
+                raise ValueError("Field %s cannot be used in order_by clause"
+                                 " because it doen't exist in index" % order_by)
             enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
         enquire.set_query(self.parse_query(query, database,
