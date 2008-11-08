@@ -59,7 +59,11 @@ class Change(models.Model):
         super(Change, self).save()
 
     def process(self):
-        return utils.process_instance(self.action, self.object)
+        return utils.process_instance(
+                        self.content_type.model_class().indexer,
+                        self.action,
+                        self.action == "delete" and self.object_id or self.object
+                )
 
     class Meta:
         unique_together = [("content_type", "object_id")]
