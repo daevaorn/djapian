@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 import os
 import sys
@@ -25,6 +26,7 @@ def daemonize():
     do_fork()
     do_fork()
 
+@transaction.commit_manually
 def update_changes(verbose, timeout, once):
     while True:
         changes = Change.objects.all().order_by("-date")
@@ -53,6 +55,14 @@ def update_changes(verbose, timeout, once):
                 sys.stdout.flush()
         if verbose and objs_count > 0:
             print '\033[0;0m'
+
+        # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
+        # turned off by default according to PEP 249. See also:
+        # http://dev.mysql.com/doc/refman/5.0/en/innodb-consistent-read-example.html
+        #
+        # PEP 249 states "Database modules that do not support transactions should
+        #                 implement this method with void functionality".
+        transaction.commit()
 
         if once:
             break
