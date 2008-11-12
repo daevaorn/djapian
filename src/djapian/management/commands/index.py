@@ -75,7 +75,7 @@ def rebuild(verbosity):
     for model in get_models():
         if hasattr(model, "indexer"):
             for obj in model._default_manager.all():
-                utils.process_instance("add", obj)
+                utils.process_instance(model.indexer, "add", obj)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
