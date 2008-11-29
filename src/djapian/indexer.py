@@ -132,7 +132,6 @@ class Indexer(object):
         if not self.path:
             # If no path specified we will create
             # for each model its own database
-            import os
             self.path = os.path.join(*self.model_name.split('.'))
 
         if model_attr_name not in model.__dict__:
@@ -166,7 +165,11 @@ class Indexer(object):
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
         Combine multiple values with bitwise-or (|).
         """
-        database = xapian.Database(self.get_full_database_path())
+        try:
+            database = xapian.Database(self.get_full_database_path())
+        except xapian.DatabaseOpeningError:
+            return ResultSet([], self)
+
         for path in self.add_database:
             database.add_database(xapian.Database(path))
         enquire = xapian.Enquire(database)
