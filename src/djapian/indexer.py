@@ -202,12 +202,11 @@ class Indexer(object):
                 'model': match[xapian.MSET_DOCUMENT].get_value(
                                                          MODEL_VALUE_NUMBER),
             })
-        self.mset = mset
 
         if return_objects:
-            return ResultObjectSet(results, self)
+            return ResultObjectSet(results, self, mset)
         else:
-            return ResultSet(results, self)
+            return ResultSet(results, self, mset)
 
     def update(self, documents=None):
         '''Update the database with the documents.

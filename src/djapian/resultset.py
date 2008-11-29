@@ -1,12 +1,13 @@
 # -*- encoding: utf-8 -*-
 
 class ResultSet(object):
-    def __init__(self, hits, indexer):
+    def __init__(self, hits, indexer, mset=None):
         self._hits = hits
         self._indexer = indexer
+        self._mset = mset
 
     def __len__(self):
-        return self._indexer.mset.get_matches_estimated()
+        return self._mset and self._mset.get_matches_estimated() or 0
 
     count = __len__
 
@@ -29,16 +30,16 @@ class ResultSet(object):
         WARNING: This returns a generator, not a "list"
         '''
         return self.__class__(self._hits[start:end], self._indexer)
-    
+
     def order_by(self, by):
         pass
-    
+
     def limit(self, start, count):
         pass
-    
+
     def _clone(self):
         pass
-    
+
     def _perform_search(self):
         pass
 
