@@ -110,7 +110,7 @@ class Indexer(object):
             self.add_field(path, weight, prefix=tag)
 
         if isinstance(model, basestring):
-            app, name = models.split('.')
+            app, name = model.split('.')
 
             model = models.get_model(app, name)
 
