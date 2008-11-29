@@ -29,7 +29,7 @@ class ResultSet(object):
         '''Allows use slices to retrive the information
         WARNING: This returns a generator, not a "list"
         '''
-        return self.__class__(self._hits[start:end], self._indexer)
+        return self.__class__(self._hits[start:end], self._indexer, self.mset)
 
     def order_by(self, by):
         pass
