@@ -10,7 +10,7 @@ from django.conf import settings
 from django.utils.encoding import smart_unicode
 
 from djapian.utils import Text
-from djapian.resultset import ResultSet, ResultObjectSet, Hit
+from djapian.resultset import SearchQuery, ResultSet
 from djapian.stemmer import Stemmer
 try:
     import xapian
@@ -143,7 +143,7 @@ class Indexer(object):
         models.signals.pre_delete.connect(pre_delete, sender=self.model)
 
         self.values_nums = [field.prefix for field in self.tags_fields]
-
+    
     def has_tag(self, name):
         for field in self.tags_fields:
             if field.prefix == name:
@@ -158,8 +158,12 @@ class Indexer(object):
         else:
             self.raw_fields.append(field)
 
-    def search(self, query, order_by='RELEVANCE', offset=0, limit=1000, \
-                     flags=None, stemming_lang=None, return_objects=False):
+
+    def search(self, query):
+        return SearchQuery(query)
+
+    def _do_search(self, query, offset=None, limit=None, order_by='RELEVANCE',\
+                     flags=None, stemming_lang=None):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -193,20 +197,8 @@ class Indexer(object):
 
         enquire.set_query(self.parse_query(query, database,
                                            flags, stemming_lang))
-        mset = enquire.get_mset(offset, limit)
-        results = []
-        for match in mset:
-            results.append({
-                'score': match[xapian.MSET_PERCENT],
-                'uid': match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
-                'model': match[xapian.MSET_DOCUMENT].get_value(
-                                                         MODEL_VALUE_NUMBER),
-            })
 
-        if return_objects:
-            return ResultObjectSet(results, self, mset)
-        else:
-            return ResultSet(results, self, mset)
+        return ResultSet(self, enquire.get_mset(offset, limit))
 
     def update(self, documents=None):
         '''Update the database with the documents.
