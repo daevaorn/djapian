@@ -8,7 +8,6 @@ from datetime import datetime
 from djapian import utils
 
 class ChangeManager(models.Manager):
-
     def create(self, object, action, **kwargs):
         ct = ContentType.objects.get_for_model(object.__class__)
 
@@ -33,10 +32,11 @@ class ChangeManager(models.Manager):
 
 
 class Change(models.Model):
-    ACTIOINS = (("add", "object added"),
-                ("edit", "object edited"),
-                ("delete", "object deleted"),
-               )
+    ACTIOINS = (
+        ("add", "object added"),
+        ("edit", "object edited"),
+        ("delete", "object deleted"),
+    )
 
     content_type = models.ForeignKey(ContentType, db_index=True)
     object_id = models.PositiveIntegerField()
@@ -48,10 +48,12 @@ class Change(models.Model):
     objects = ChangeManager()
 
     def __unicode__(self):
-        return u'%s#%d To action:`%s`, added on %s' % (self.content_type,
-                                                       self.object_id,
-                                                       self.action,
-                                                       self.date)
+        return u'%s#%d To action:`%s`, added on %s' % (
+            self.content_type,
+            self.object_id,
+            self.action,
+            self.date
+        )
 
     def save(self):
         self.date = datetime.now()
@@ -60,10 +62,10 @@ class Change(models.Model):
 
     def process(self):
         return utils.process_instance(
-                        self.content_type.model_class().indexer,
-                        self.action,
-                        self.action == "delete" and self.object_id or self.object
-                )
+            self.content_type.model_class().indexer,
+            self.action,
+            self.action == "delete" and self.object_id or self.object
+        )
 
     class Meta:
         unique_together = [("content_type", "object_id")]

@@ -10,16 +10,8 @@ from django.conf import settings
 from django.utils.encoding import smart_unicode
 
 from djapian.resultset import SearchQuery, ResultSet
-from djapian.stemmer import Stemmer
-try:
-    import xapian
-except ImportError:
-    raise ImportError("Xapian python bindings must be"
-                      " installed to use Djapian")
 
-UID_VALUE_NUMBER = 1
-MODEL_VALUE_NUMBER = 2
-INDEXER_VALUE_NUMBER = 3
+import xapian
 
 DEFAULT_WEIGHT = 1
 
@@ -62,18 +54,15 @@ class Indexer(object):
     fields = []
     tags = []
     aliases = {}
-    trigger = lambda obj: True
+    trigger = lambda indexer, obj: True
     stemming_lang_accessor = None
 
     def __init__(self, db, model):
-        """Initialize an Indexer whose index data is stored at `path`.
-        `model` is the Model (or string name of the model) whose instances will
-        be used as documents. Note that fields from other models can still be
-        used in the index, but this model will be the one returned from search
-        results.
-        `fields` may be optionally initialized as an iterable of unnamed Fields.
-        `attributes` may be optionally initialized as a mapping of field names
-        to Fields.
+        """
+        Initialize an Indexer whose index data to `db`.
+        `model` is the Model whose instances will be used as documents.
+        Note that fields from other models can still be used in the index,
+        but this model will be the one returned from search results.
         """
         self._db = db
         self._model = model
@@ -131,6 +120,10 @@ class Indexer(object):
 
         return None
 
+    @classmethod
+    def get_descriptor(cls):
+        return ".".join([cls.__module__, cls.__name__]).lower()
+
     # Public Indexer interface
 
     def update(self, documents=None):
@@ -170,10 +163,8 @@ class Indexer(object):
             #
             # Add default terms and values
             #
-            doc.add_term("UID%s" % obj._get_pk_val())
-            doc.add_value(UID_VALUE_NUMBER, '%s' % obj._get_pk_val())
-            doc.add_value(MODEL_VALUE_NUMBER, self.model_name)
-            doc.add_value(INDEXER_VALUE_NUMBER, self.descriptor)
+            doc.add_term(self._create_uid(obj))
+            self._insert_meta_values(doc, obj)
 
             stemmer = xapian.Stem(self._get_stem_language(obj))
             generator = xapian.TermGenerator()
@@ -185,22 +176,22 @@ class Indexer(object):
                 try:
                     value = field.resolve(obj)
                 except AttributeError:
-                    continue
-                except Exception:
-                    continue
+                    if field.prefix:
+                        valueno += 1
 
                 if field.prefix:
                     # If it is a model field make some postprocessing of its value
                     try:
-                        content_type = self._mode._meta.get_field(field.path.split('.')[0])
-                    except self._model.FieldDoesNotExist:
+                        content_type = self._model._meta.get_field(field.path.split('.')[0])
+                    except models.FieldDoesNotExist:
                         content_type = value
 
                     index_value = self._get_index_value(value, content_type)
-                    doc.add_value(valueno, index_value)
+                    if index_value is not None:
+                        doc.add_value(valueno, index_value)
                     valueno += 1
 
-                generator.index_text(value, field.weight, fielf.prefix)
+                generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.prefix))
 
             database.replace_document("UID%s" % obj.pk, doc)
             #FIXME: ^ may raise InvalidArgumentError when word in
@@ -229,17 +220,24 @@ class Indexer(object):
     __len__ = document_count
 
     def clear(self):
-        return
-        path = self.get_full_database_path()
-        try:
-            for file_path in os.listdir(path):
-                os.remove(os.path.join(path, file_path))
-
-            os.rmdir(path)
-        except OSError:
-            pass
+        self._db.clear()
 
     # Private Indexer interface
+
+    def _get_meta_values(self, obj):
+        return [obj.pk, self._model_name, self.__class__.get_descriptor()]
+
+    def _insert_meta_values(self, doc, obj, start=1):
+        for value in self._get_meta_values(obj):
+            doc.add_value(start, smart_unicode(value))
+            start += 1
+        return start
+
+    def _create_uid(self, obj):
+        """
+        Generates document UID for given object
+        """
+        return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset=None, limit=None, order_by='RELEVANCE',
                      flags=None, stemming_lang=None):

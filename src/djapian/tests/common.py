@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 
 from djapian import Field
@@ -40,8 +39,6 @@ class ChangeTrackingTest(BaseTestCase):
         )
 
     def test_change_count(self):
-        from djapian.models import Change
-
         self.assertEqual(Change.objects.count(), 2)
 
 class ChangeTrackingUpdateTest(BaseTestCase):
@@ -57,7 +54,6 @@ class ChangeTrackingUpdateTest(BaseTestCase):
 
     def test_change_action(self):
         self.assertEqual(Change.objects.get().action, "add")
-
 
 class ChangeTrackingDeleteTest(BaseTestCase):
     def setUp(self):

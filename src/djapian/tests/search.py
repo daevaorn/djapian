@@ -4,7 +4,6 @@ from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
 
 
 class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
-
     def setUp(self):
         super(IndexerSearchTextTest, self).setUp()
         self.result = Entry.indexer.search("text", return_objects=True)

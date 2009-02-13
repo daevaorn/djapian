@@ -24,29 +24,33 @@ class Database(object):
 
     def open(self, write=False):
         """
-        Opens database for manipulations and returns Xapian::Enquire object
+        Opens database for manipulations
         """
+        if not os.path.exists(self._path):
+            os.makedirs(self._path)
+
         if write:
             database = xapian.WritableDatabase(
-                self.path,
+                self._path,
                 xapian.DB_CREATE_OR_OPEN,
             )
         else:
             try:
-                database = xapian.Database(self.path)
+                database = xapian.Database(self._path)
             except xapian.DatabaseOpeningError:
                 self._create_database()
 
-                database = xapian.Database(self.path)
+                database = xapian.Database(self._path)
 
         return database
 
     def _create_database(self):
         database = xapian.WritableDatabase(
-            self.path,
+            self._path,
             xapian.DB_CREATE_OR_OPEN,
         )
         database.close()
+        del database
 
     def document_count(self):
         pass
@@ -58,6 +62,10 @@ class Database(object):
         return len(self._indexes)
 
     def clear(self):
-        pass
+        try:
+            for file_path in os.listdir(self._path):
+                os.remove(os.path.join(self._path, file_path))
 
-db = Database(settings.DJAPIAN_DATABASE_PATH)
+            os.rmdir(self._path)
+        except OSError:
+            pass

@@ -5,7 +5,8 @@ from datetime import datetime
 from django.db import models
 from django.test import TestCase
 
-from djapian import Indexer, Field, db
+import djapian
+from djapian import Indexer, Field
 
 class Person(models.Model):
     name = models.CharField(max_length=150)
@@ -53,9 +54,9 @@ class EntryIndexer(Indexer):
         "title": "subject",
         "author": "user",
     }
-    trigger=lambda obj: obj.is_active,
+    trigger=lambda indexer, obj: obj.is_active
 
-db.add_index(Entry, EntryIndexer)
+indexer = djapian.add_index(Entry, EntryIndexer, attach_as="indexer")
 
 class BaseTestCase(TestCase):
     def tearDown(self):
@@ -64,17 +65,18 @@ class BaseTestCase(TestCase):
 class BaseIndexerTest(object):
     def setUp(self):
         p = Person.objects.create(name="Alex")
-        entry1 = Entry.objects.create(
-            author=p,
-            title="Test entry",
-            text="Not large text field"
-        )
-        entry2 = Entry.objects.create(
-            author=p,
-            title="Another test entry",
-            is_active=False
-        )
 
-        self.entries = [entry1, entry2]
+        self.entries= [
+            Entry.objects.create(
+                author=p,
+                title="Test entry",
+                text="Not large text field"
+            ),
+            Entry.objects.create(
+                author=p,
+                title="Another test entry",
+                is_active=False
+            )
+        ]
 
         Entry.indexer.update(self.entries)
