@@ -92,6 +92,9 @@ class SearchQuery(object):
                     limit=1
                 )
 
+    def get_corrected_query_string(self):
+        return self.corrected_query_string
+
 class ResultSet(object):
     def __init__(self, indexer, mset):
         self.indexer = indexer
