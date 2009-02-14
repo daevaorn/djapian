@@ -138,10 +138,10 @@ class ResultSet(object):
                     limit=stop - start
                 )
             else:
-                return self._clone(
+                return list(self._clone(
                     offset=k,
                     limit=1
-                )
+                ))[k]
 
         def __unicode__(self):
             return "<ResultSet: query=%s prefetch=%s>" % (self.query_str, self._prefetch)

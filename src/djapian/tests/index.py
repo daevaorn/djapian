@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 from datetime import datetime
 
@@ -7,13 +6,12 @@ from django.db import models
 from djapian import Indexer, Field
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
 
-
 class IndexerUpdateTest(BaseIndexerTest, BaseTestCase):
     def test_database_exists(self):
         self.assert_(os.path.exists(Entry.indexer._db._path))
 
     def test_document_count(self):
-        self.assertEqual(Entry.indexer.document_count(), 2)
+        self.assertEqual(Entry.indexer.document_count(), 1)
 
 class IndexCommandTest(BaseTestCase):
     def setUp(self):

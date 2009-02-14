@@ -127,7 +127,7 @@ class Indexer(object):
 
     # Public Indexer interface
 
-    def update(self, documents=None, after_index=True):
+    def update(self, documents=None, after_index=None):
         """
         Update the database with the documents.
         There are some default value and terms in a document:
