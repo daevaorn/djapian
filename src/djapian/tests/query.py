@@ -14,5 +14,6 @@ def query_test(query, count):
     return _QueryTest
 
 IndexerSearchCharFieldTest = query_test("title:test", 1)
+IndexerSearchAliasFieldTest = query_test("subject:test", 1)
 IndexerSearchBoolFieldTest = query_test("active:True", 1)
 IndexerSearchAndQueryTest = query_test("title:test AND title:another", 0)

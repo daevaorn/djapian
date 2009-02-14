@@ -94,6 +94,7 @@ class ResultSet(object):
 
         for match in self._mset:
             doc = match.get_document()
+
             model = doc.get_value(2)
             model = get_model(*model.split('.'))
             pk = model._meta.pk.to_python(doc.get_value(1))

@@ -21,6 +21,9 @@ class Field(object):
         self.weight = weight
         self.prefix = prefix
 
+    def get_tag(self):
+        return self.prefix.upper()
+
     def resolve(self, value):
         bits = self.path.split(".")
 
@@ -200,7 +203,7 @@ class Indexer(object):
                         doc.add_value(valueno, smart_unicode(index_value))
                     valueno += 1
 
-                generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.prefix))
+                generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.get_tag()))
 
             database.replace_document(uid, doc)
             #FIXME: ^ may raise InvalidArgumentError when word in
@@ -332,10 +335,10 @@ class Indexer(object):
         query_parser = xapian.QueryParser()
 
         for field in self.tags:
-            query_parser.add_prefix(field.prefix.lower(), field.prefix)
+            query_parser.add_prefix(field.prefix.lower(), field.get_tag())
             if field.prefix in self.aliases:
                 for alias in self.aliases[field.prefix]:
-                    query_parser.add_prefix(alias, field.prefix)
+                    query_parser.add_prefix(alias, field.get_tag())
 
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
@@ -352,5 +355,5 @@ class Indexer(object):
 
         # This will only work if the flag FLAG_SPELLING_CORRECTION is set
         self.corrected_query_string = query_parser.get_corrected_query_string()
-
+        print dir(parsed_query), [term for term in parsed_query], parsed_query.get_description()
         return parsed_query
