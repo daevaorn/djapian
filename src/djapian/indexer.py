@@ -1,5 +1,3 @@
-# -*- encoding: utf-8 -*-
-#from datetime import datetime
 import datetime
 import os
 
@@ -15,7 +13,7 @@ from djapian import utils
 import xapian
 
 class Field(object):
-    raw_types = (int, long, float, basestring, bool,
+    raw_types = (int, long, float, basestring, bool, models.Model,
                  datetime.time, datetime.date, datetime.datetime)
 
     def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix=""):
@@ -129,7 +127,7 @@ class Indexer(object):
 
     # Public Indexer interface
 
-    def update(self, documents=None):
+    def update(self, documents=None, after_index=True):
         """
         Update the database with the documents.
         There are some default value and terms in a document:
@@ -149,7 +147,7 @@ class Indexer(object):
 
         # If doesnt have any document get all
         if documents is None:
-            update_queue = self.model.objects.all()
+            update_queue = self._model.objects.all()
         else:
             update_queue = documents
 
@@ -158,10 +156,12 @@ class Indexer(object):
         except AttributeError:
             iterator = iter(update_queue)
 
-        valueno = self.free_values_start_number
-
         # Get each document received
         for obj in iterator:
+            if not self.trigger(obj):
+                self.delete(obj.pk, database)
+                continue
+
             doc = xapian.Document()
             #
             # Add default terms and values
@@ -177,6 +177,8 @@ class Indexer(object):
             stem_lang = self._get_stem_language(obj)
             if stem_lang:
                 generator.set_stemmer(xapian.Stem(stem_lang))
+
+            valueno = self.free_values_start_number
 
             for field in self.fields + self.tags:
                 # Trying to resolve field value or skip it
@@ -195,7 +197,7 @@ class Indexer(object):
 
                     index_value = self._get_index_value(value, content_type)
                     if index_value is not None:
-                        doc.add_value(valueno, index_value)
+                        doc.add_value(valueno, smart_unicode(index_value))
                     valueno += 1
 
                 generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.prefix))
@@ -203,20 +205,22 @@ class Indexer(object):
             database.replace_document(uid, doc)
             #FIXME: ^ may raise InvalidArgumentError when word in
             #         text larger than 255 simbols
+            if after_index:
+                after_index(obj)
         database.flush()
         del database
 
     def search(self, query):
         return ResultSet(self, query)
 
-    def delete(self, doc_id):
+    def delete(self, doc_id, database=None):
         """
         Delete a document from index
         """
         try:
-            database = self._db.open(write=True)
+            if database is None:
+                database = self._db.open(write=True)
             database.delete_document('UID%d' % doc_id)
-            del database
         except (IOError, RuntimeError, xapian.DocNotFoundError), e:
             pass
 
@@ -258,9 +262,9 @@ class Indexer(object):
         if order_by in (None, 'RELEVANCE'):
             enquire.set_sort_by_relevance()
         else:
-            ascending = False
-            if isinstance(order_by, basestring) and order_by.startswith('-'):
-                ascending = True
+            ascending = True
+            if order_by.startswith('-'):
+                ascending = False
 
             if order_by[0] in '+-':
                 order_by = order_by[1:]
@@ -270,8 +274,8 @@ class Indexer(object):
             except (ValueError, TypeError):
                 raise ValueError("Field %s cannot be used in order_by clause"
                                  " because it doen't exist in index" % order_by)
-            enquire.set_sort_by_relevance_then_value(valueno, ascending)
 
+            enquire.set_sort_by_relevance_then_value(valueno, ascending)
         enquire.set_query(
             self._parse_query(query, database, flags)
         )

@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
@@ -12,8 +11,10 @@ class ChangeManager(models.Manager):
         ct = ContentType.objects.get_for_model(object.__class__)
 
         try:
-            old_change = self.get(content_type=ct,
-                                  object_id=object._get_pk_val())
+            old_change = self.get(
+                content_type=ct,
+                object_id=object.pk
+            )
             if old_change.action=="add":
                 if action=="edit":
                     old_change.save()
@@ -59,13 +60,6 @@ class Change(models.Model):
         self.date = datetime.now()
 
         super(Change, self).save()
-
-    def process(self):
-        return utils.process_instance(
-            self.content_type.model_class().indexer,
-            self.action,
-            self.action == "delete" and self.object_id or self.object
-        )
 
     class Meta:
         unique_together = [("content_type", "object_id")]

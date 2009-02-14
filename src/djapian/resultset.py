@@ -62,7 +62,7 @@ class ResultSet(object):
 
         return self._mset.size()
 
-    def _do_perfetch(self):
+    def _do_prefetch(self):
         model_map = defaultdict(list)
 
         for hit in self._resultset_cache:
@@ -85,24 +85,27 @@ class ResultSet(object):
                 self._order_by,
                 self._flags
             )
-            self._parse_result()
+            self._parse_results()
 
         return self._resultset_cache
 
-    def _parse_result(self):
+    def _parse_results(self):
         self._resultset_cache = []
 
         for match in self._mset:
-            model = match[xapian.MSET_DOCUMENT].get_value(2)
+            doc = match.get_document()
+            model = doc.get_value(2)
             model = get_model(*model.split('.'))
-            pk = model._meta.pk.to_python(match[xapian.MSET_DOCUMENT].get_value(1))
+            pk = model._meta.pk.to_python(doc.get_value(1))
 
-            percent = match[xapian.MSET_PERCENT]
+            percent = match.get_percent()
+            rank = match.get_rank()
+            weight = match.get_weight()
 
-            self._resultset_cache.append(Hit(pk, percent, model))
+            self._resultset_cache.append(Hit(pk, model, percent, rank, weight))
 
         if self._prefetch:
-            self._do_perfetch()
+            self._do_prefetch()
 
     def __iter__(self):
         self._fetch_results()
@@ -144,11 +147,13 @@ class ResultSet(object):
             return "<ResultSet: query=%s prefetch=%s>" % (self.query_str, self._prefetch)
 
 class Hit(object):
-    def __init__(self, pk, score, model, instance=None):
+    def __init__(self, pk, model, percent, rank, weight):
         self.pk = pk
-        self.score = score
         self.model = model
-        self._instance = instance
+        self.percent = percent
+        self.rank = rank
+        self.weight = weight
+        self._instance = None
 
     def get_instance(self):
         if self._instance is None:
@@ -161,7 +166,6 @@ class Hit(object):
     instance = property(get_instance, set_instance)
 
     def __repr__(self):
-        return "<Hit: model=%s.%s pk=%s, score=%s>" % (
-            self.model._meta.app_label, self.model._meta.object_name,
-            self.pk, self.score
+        return "<Hit: model=%s pk=%s, percent=%s rank=%s weight=%s>" % (
+            utils.model_name(self.model), self.pk, self.percent, self.rank, self.weight
         )

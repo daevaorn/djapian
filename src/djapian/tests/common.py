@@ -3,6 +3,7 @@ import os
 from djapian import Field
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
 from djapian.models import Change
+from django.utils.encoding import force_unicode
 
 class IndexerTest(BaseTestCase):
     def test_text_fields_count(self):
@@ -21,6 +22,9 @@ class FieldResolverTest(BaseTestCase):
 
     def test_related_attribute(self):
         self.assertEqual(Field("author.name").resolve(self.entry), "Alex")
+
+    def test_fk_attribute(self):
+        self.assertEqual(force_unicode(Field("author").resolve(self.entry)), "Alex")
 
     def test_method(self):
         self.assertEqual(

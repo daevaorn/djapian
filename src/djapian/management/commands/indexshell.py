@@ -5,16 +5,14 @@ from django.core.management.base import BaseCommand
 from djapian import utils
 import djapian
 
-def model_name(model):
-    return "%s.%s" % (model._meta.app_label, model._meta.object_name)
-
-def with_selected_index(func):
+def with_index(func):
     def _decorator(cmd, arg):
         if cmd._current_index is None:
             print "No index selected"
             return
 
         return func(cmd, arg)
+    _decorator.__doc__ = func.__doc__
     return _decorator
 
 class Interpreter(cmd.Cmd):
@@ -35,7 +33,7 @@ class Interpreter(cmd.Cmd):
         """
         for i, pair in enumerate(self._list):
             model, indexers = pair
-            print "%s: `%s` by:" % (i, model_name(model))
+            print "%s: `%s` by:" % (i, utils.model_name(model))
             for j, indexer in enumerate(indexers):
                 print "\t%s.%s: %s" % (i, j, indexer)
 
@@ -51,30 +49,34 @@ class Interpreter(cmd.Cmd):
         """
         model, indexer = map(int, index.split('.'))
         self._current_index = self._list[model][1][indexer]
-        print "Using `%s by %s` index" % (model_name(self._list[model][0]), self._list[model][1][indexer])
+        print "Using `%s by %s` index" % (utils.model_name(self._list[model][0]), self._list[model][1][indexer])
 
-    @with_selected_index
+    @with_index
     def do_query(self, query):
         """
         Returns objects fetched by given query
         """
         print list(self._current_index.search(query))
 
-    @with_selected_index
+    @with_index
     def do_count(self, query):
         """
         Returns count of objects fetched by given query
         """
         print self._current_index.search(query).count()
 
-    @with_selected_index
+    @with_index
     def do_total(self, arg):
         """
         Returns count of objects in index
         """
         print self._current_index.document_count()
 
-    @with_selected_index
+    def do_stats(self, arg):
+        import operator
+        print "Number of indexes: %s" % reduce(operator.add, [len(indexes) for model, indexes in self._list])
+
+    @with_index
     def do_listdocs(self, slice=""):
         """
         Returns count of objects in index
@@ -126,4 +128,4 @@ class Command(BaseCommand):
         try:
             Interpreter(*args).cmdloop("Interactive Djapian shell.")
         except KeyboardInterrupt:
-            pass
+            print "\n"

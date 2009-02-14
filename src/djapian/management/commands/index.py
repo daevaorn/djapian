@@ -13,25 +13,28 @@ from djapian import utils
 import djapian
 
 @transaction.commit_manually
-def update_changes(verbose, timeout, once):
+def update_changes(verbosity, timeout, once):
+    def after_index(obj):
+        if verbosity:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+
     while True:
-        changes = Change.objects.all().order_by("-date")
+        changes = Change.objects.all().order_by("-date")# The objects must be sorted by date
         objs_count = changes.count()
 
-        if objs_count > 0 and verbose:
+        if objs_count > 0 and verbosity:
             print 'There are %d objects to update' % objs_count
 
-        # The objects must be sorted by date
         for change in changes:
-            change.process()
+            indexers = djapian.indexer_map[change.content_type.model_class()]
+
+            for indexer in indexers:
+                if change.action == "delete":
+                    indexer.delete(change.object_id)
+                else:
+                    indexer.update([change.object], after_index)
             change.delete()
-
-            if verbose:
-                sys.stdout.write('.')
-                sys.stdout.flush()
-
-        if verbose and objs_count > 0:
-            print '\n'
 
         # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
         # turned off by default according to PEP 249. See also:
@@ -47,31 +50,25 @@ def update_changes(verbose, timeout, once):
         time.sleep(timeout)
 
 def rebuild(verbosity):
+    def after_index(obj):
+        if verbosity:
+            sys.stdout.write('.')
+            sys.stdout.flush()
     for model, indexers in djapian.indexer_map.iteritems():
         for indexer in indexers:
-            for obj in model._default_manager.all():
-                utils.process_instance(indexer, "add", obj)
+            indexer.update(after_index=after_index)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
-        make_option('--verbosity',
-                    action='store_true',
-                    default=False,
+        make_option('--verbosity', action='store_true', default=False,
                     help='Verbosity output'),
-        make_option("--daemonize",
-                    dest="make_daemon",
-                    default=False,
+        make_option("--daemonize", dest="make_daemon", default=False,
                     action="store_true",
                     help="Do not fork the process"),
-        make_option("--time-out",
-                    dest="timeout",
-                    default=10,
-                    type="int",
+        make_option("--time-out", dest="timeout", default=10, type="int",
                     help="Time to sleep between each query to the"
                          " database (default: %default)"),
-        make_option("--rebuild",
-                    dest="rebuild_index",
-                    default=False,
+        make_option("--rebuild", dest="rebuild_index", default=False,
                     action="store_true",
                     help="Rebuild index database"),
     )
@@ -90,3 +87,6 @@ class Command(BaseCommand):
             rebuild(verbosity)
         else:
             update_changes(verbosity, timeout, not make_daemon)
+
+        if verbosity:
+            print '\n'
