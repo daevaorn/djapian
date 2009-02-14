@@ -1,3 +1,5 @@
+# Module taken from Turbion blog engine
+
 import os
 import imp
 

@@ -1,7 +1,20 @@
 import xapian
 
-class SearchQuery(object):
-    def __init__(self, indexer, query_str, offset=0, limit=100000,
+from django.db.models import get_model
+
+from djapian import utils
+
+class defaultdict(dict):
+    def __init__(self, value_type):
+        self._value_type= value_type
+
+    def __getitem__(self, key):
+        if key not in self:
+            dict.__setitem__(self, key, list())
+        return dict.__getitem__(self, key)
+
+class ResultSet(object):
+    def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
                  order_by=None, prefetch=False, flags=None):
         self._indexer = indexer
         self._query_str = query_str
@@ -11,6 +24,22 @@ class SearchQuery(object):
         self._prefetch = prefetch
         self._flags = flags
         self._resultset_cache = None
+        self._mset = None
+
+    def prefetch(self):
+        return self._clone(prefetch=True)
+
+    def order_by(self, field):
+        return self._clone(order_by=field)
+
+    def flags(self, flags):
+        return self._clone(flags=flags)
+
+    #def stemming(self, lang):
+    #    return self._clone(stemming_lang=lang)
+
+    def count(self):
+        return self._clone()._do_count()
 
     def _clone(self, **kwargs):
         data = {
@@ -26,41 +55,62 @@ class SearchQuery(object):
 
         data.update(kwargs)
 
-        return SearchQuery(**data)
+        return ResultSet(**data)
 
-    def prefetch(self):
-        return self._clone(prefetch=True)
+    def _do_count(self):
+        self._fetch_results()
 
-    def order_by(self, field):
-        return self._clone(order_by=field)
+        return self._mset.size()
 
-    def flags(self, flags):
-        return self._clone(flags=flags)
+    def _do_perfetch(self):
+        model_map = defaultdict(list)
 
-    #def stemming(self, lang):
-    #    return self._clone(stemming_lang=lang)
+        for hit in self._resultset_cache:
+            model_map[hit.model].append(hit)
 
-    def count(self):
-        return self._clone()._get_data().get_count()
+        for model, hits in model_map.iteritems():
+            pks = [hit.pk for hit in hits]
 
-    def _get_data(self):
+            instances = model._default_manager.in_bulk(pks)
+
+            for hit in hits:
+                hit.instance = instances[hit.pk]
+
+    def _fetch_results(self):
         if self._resultset_cache is None:
-            self._resultset_cache = self._indexer._do_search(
+            self._mset = self._indexer._do_search(
                 self._query_str,
                 self._offset,
                 self._limit,
                 self._order_by,
                 self._flags
             )
-            if self._prefetch:
-                self._resultset_cache.prefetch()
+            self._parse_result()
+
         return self._resultset_cache
 
+    def _parse_result(self):
+        self._resultset_cache = []
+
+        for match in self._mset:
+            model = match[xapian.MSET_DOCUMENT].get_value(2)
+            model = get_model(*model.split('.'))
+            pk = model._meta.pk.to_python(match[xapian.MSET_DOCUMENT].get_value(1))
+
+            percent = match[xapian.MSET_PERCENT]
+
+            self._resultset_cache.append(Hit(pk, percent, model))
+
+        if self._prefetch:
+            self._do_perfetch()
+
     def __iter__(self):
-        return self._get_data().__iter__()
+        self._fetch_results()
+        return iter(self._resultset_cache)
 
     def __len__(self):
-        return len(self._get_data())
+        self._fetch_results()
+        return len(self._resultset_cache)
 
     def __getitem__(self, k):
         if not isinstance(k, (slice, int, long)):
@@ -71,12 +121,18 @@ class SearchQuery(object):
                 "Negative indexing is not supported."
 
         if self._resultset_cache is not None:
-            return self._get_data()[k]
+            return self._fetch_results()[k]
         else:
             if isinstance(k, slice):
+                start, stop = k.start, k.stop
+                if start is None:
+                    start = 0
+                if stop is None:
+                    kstop = utils.DEFAULT_MAX_RESULTS
+
                 return self._clone(
-                    offset=k.start,
-                    limit=k.stop-k.start
+                    offset=start,
+                    limit=stop - start
                 )
             else:
                 return self._clone(
@@ -84,60 +140,28 @@ class SearchQuery(object):
                     limit=1
                 )
 
-class ResultSet(object):
-    def __init__(self, indexer, mset):
-        self.indexer = indexer
-        self.mset = mset
-        self._hits_cache = None
-
-    def get_count(self):
-        return self.mset.get_matches_estimated()
-
-    def prefetch(self):
-        rows = self._iter_results()
-
-        pks = dict([(r.uid, i) for r in enumerate(rows)])
-
-        instances = self.indexer.model._default_managet(in_bulk=pks.keys())
-
-        for uid, instance in instances.iteritems():
-            self._hits_cache[pks[uid]].instance = instance
-
-    def _iter_results(self):
-        if self._hits_cache is None:
-            self._hits_cache = []
-            for match in self.mset:
-                self._hits_cache.append(Hit(
-                    match[xapian.MSET_DOCUMENT].get_value(1),
-                    match[xapian.MSET_PERCENT],
-                    match[xapian.MSET_DOCUMENT].get_value(2)
-                ))
-        for hit in self._hits_cache:
-            yield hit
-
-    def __iter__(self):
-        return self._iter_results()
+        def __unicode__(self):
+            return "<ResultSet: query=%s prefetch=%s>" % (self.query_str, self._prefetch)
 
 class Hit(object):
-    def __init__(self, uid, score, model, instance=None):
-        from django.db.models import get_model
-        self.uid = uid
+    def __init__(self, pk, score, model, instance=None):
+        self.pk = pk
         self.score = score
-        self.model = get_model(*model.split('.'))
+        self.model = model
         self._instance = instance
 
     def get_instance(self):
         if self._instance is None:
-            name = self.model._meta.pk.name
-            pk = self.model._meta.pk.to_python(self.uid)
-            self._instance = self.model.objects.get(**{name: pk})
+            self._instance = self.model._default_manager.get(pk=self.pk)
         return self._instance
 
     def set_instance(self, instance):
-        self._instnace = instance
+        self._instance = instance
 
     instance = property(get_instance, set_instance)
 
     def __repr__(self):
-        return "<Hit: Model:%s pk:%s, Score:%s>" % (self.model.__name__,
-                                                   self.uid, self.score)
+        return "<Hit: model=%s.%s pk=%s, score=%s>" % (
+            self.model._meta.app_label, self.model._meta.object_name,
+            self.pk, self.score
+        )

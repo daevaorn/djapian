@@ -1,5 +1,8 @@
 from django.conf import settings
 
+DEFAULT_MAX_RESULTS = 100000
+DEFAULT_WEIGHT = 1
+
 def load_indexes():
     from djapian.utils import loading
     for app in settings.INSTALLED_APPS:

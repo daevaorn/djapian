@@ -9,17 +9,16 @@ from djapian.signals import post_save, pre_delete
 from django.conf import settings
 from django.utils.encoding import smart_unicode
 
-from djapian.resultset import SearchQuery, ResultSet
+from djapian.resultset import ResultSet
+from djapian import utils
 
 import xapian
-
-DEFAULT_WEIGHT = 1
 
 class Field(object):
     raw_types = (int, long, float, basestring, bool,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, weight=DEFAULT_WEIGHT, prefix=""):
+    def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix=""):
         self.path = path
         self.weight = weight
         self.prefix = prefix
@@ -91,7 +90,7 @@ class Indexer(object):
             if len(field) == 3:
                 weight = field[2]
             else:
-                weight = DEFAULT_WEIGHT
+                weight = utils.DEFAULT_WEIGHT
 
             self.tags.append(Field(path, weight, prefix=tag))
 
@@ -108,6 +107,7 @@ class Indexer(object):
 
     def __unicode__(self):
         return self.__class__.get_descriptor()
+    __str__ = __unicode__
 
     def has_tag(self, name):
         for field in self.tags:
@@ -207,7 +207,7 @@ class Indexer(object):
         del database
 
     def search(self, query):
-        return SearchQuery(self, query)
+        return ResultSet(self, query)
 
     def delete(self, doc_id):
         """
@@ -246,8 +246,7 @@ class Indexer(object):
         """
         return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
-    def _do_search(self, query, offset=0, limit=100000, order_by='RELEVANCE',
-                     flags=None):
+    def _do_search(self, query, offset, limit, order_by, flags):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -277,7 +276,7 @@ class Indexer(object):
             self._parse_query(query, database, flags)
         )
 
-        return ResultSet(self, enquire.get_mset(offset, limit))
+        return enquire.get_mset(offset, limit)
 
     def _get_stem_language(self, obj=None):
         """
