@@ -355,5 +355,5 @@ class Indexer(object):
 
         # This will only work if the flag FLAG_SPELLING_CORRECTION is set
         self.corrected_query_string = query_parser.get_corrected_query_string()
-        print dir(parsed_query), [term for term in parsed_query], parsed_query.get_description()
+
         return parsed_query

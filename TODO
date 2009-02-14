@@ -6,3 +6,4 @@ TODO list for the project:
 - add logging to indexer
 - add support for xapian transactions
 - add support for ranges search
+- handle corrected query string
