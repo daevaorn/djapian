@@ -19,7 +19,7 @@ class Field(object):
     raw_types = (int, long, float, basestring, bool,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, weight=DEFAULT_WEIGHT, prefix=None):
+    def __init__(self, path, weight=DEFAULT_WEIGHT, prefix=""):
         self.path = path
         self.weight = weight
         self.prefix = prefix
@@ -106,6 +106,9 @@ class Indexer(object):
         models.signals.post_save.connect(post_save, sender=self._model)
         models.signals.pre_delete.connect(pre_delete, sender=self._model)
 
+    def __unicode__(self):
+        return self.__class__.get_descriptor()
+
     def has_tag(self, name):
         for field in self.tags:
             if field.prefix == name:
@@ -163,13 +166,17 @@ class Indexer(object):
             #
             # Add default terms and values
             #
+            uid = self._create_uid(obj)
             doc.add_term(self._create_uid(obj))
             self._insert_meta_values(doc, obj)
 
-            stemmer = xapian.Stem(self._get_stem_language(obj))
             generator = xapian.TermGenerator()
             generator.set_database(database)
             generator.set_document(doc)
+
+            stem_lang = self._get_stem_language(obj)
+            if stem_lang:
+                generator.set_stemmer(xapian.Stem(stem_lang))
 
             for field in self.fields + self.tags:
                 # Trying to resolve field value or skip it
@@ -193,7 +200,7 @@ class Indexer(object):
 
                 generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.prefix))
 
-            database.replace_document("UID%s" % obj.pk, doc)
+            database.replace_document(uid, doc)
             #FIXME: ^ may raise InvalidArgumentError when word in
             #         text larger than 255 simbols
         database.flush()
@@ -239,8 +246,8 @@ class Indexer(object):
         """
         return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
-    def _do_search(self, query, offset=None, limit=None, order_by='RELEVANCE',
-                     flags=None, stemming_lang=None):
+    def _do_search(self, query, offset=0, limit=100000, order_by='RELEVANCE',
+                     flags=None):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -249,7 +256,7 @@ class Indexer(object):
         database = self._db.open()
         enquire = xapian.Enquire(database)
 
-        if order_by == 'RELEVANCE':
+        if order_by in (None, 'RELEVANCE'):
             enquire.set_sort_by_relevance()
         else:
             ascending = False
@@ -264,26 +271,24 @@ class Indexer(object):
             except (ValueError, TypeError):
                 raise ValueError("Field %s cannot be used in order_by clause"
                                  " because it doen't exist in index" % order_by)
-            enquire.set_sort_by_value_then_relevance(valueno, ascending)
+            enquire.set_sort_by_relevance_then_value(valueno, ascending)
 
         enquire.set_query(
-            self._parse_query(query, database, flags, stemming_lang)
+            self._parse_query(query, database, flags)
         )
 
         return ResultSet(self, enquire.get_mset(offset, limit))
 
-    def _get_stem_language(self, obj):
+    def _get_stem_language(self, obj=None):
         """
         Returns stemmig language for given object if acceptable or model wise
         """
         language = getattr(settings, "DJAPIAN_STEMMING_LANG", "none") # Use the language defined in DJAPIAN_STEMMING_LANG
 
-        # A per-model language setting is used
-        if language == "multi":
+        if obj:
             try:
                 language = Field(self.stemming_lang_accessor).resolve(obj)
             except AttributeError:
-                # No language defined
                 pass
 
         return language
@@ -316,33 +321,24 @@ class Indexer(object):
 
         return value
 
-    def _parse_query(self, term, db, flags=None, stemming_lang=None):
+    def _parse_query(self, term, db, flags=None):
         """
         Parses search queries
         """
         # Instance Xapian Query Parser
         query_parser = xapian.QueryParser()
 
-        for field in self.tags_fields:
-            query_parser.add_prefix(field.prefix.lower(), field.prefix.upper())
+        for field in self.tags:
+            query_parser.add_prefix(field.prefix.lower(), field.prefix)
             if field.prefix in self.aliases:
                 for alias in self.aliases[field.prefix]:
-                    query_parser.add_prefix(alias, field.prefix.upper())
+                    query_parser.add_prefix(alias, field.prefix)
 
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
 
-        # Stemming
-        # See http://code.google.com/p/djapian/wiki/Stemming
-        # The stemming_lang parameter has priority; if it is
-        # defined, it is used.
-        # If not, the DJAPIAN_STEMMING_LANG variable from settings.py is used,
-        # if it is defined, not None, and not defined as "multi" (i.e. if it is
-        # defined as a language such as 'en' or 'french')
-        if stemming_lang is None:
-            stemming_lang = getattr(settings, "DJAPIAN_STEMMING_LANG", None)
-
-        if stemming_lang not in (None, "multi"):
+        stemming_lang = self._get_stem_language()
+        if stemming_lang:
             query_parser.set_stemmer(xapian.Stem(stemming_lang))
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
 

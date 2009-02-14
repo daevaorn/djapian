@@ -1,3 +1,12 @@
+from django.conf import settings
+
+def load_indexes():
+    from djapian.utils import loading
+    for app in settings.INSTALLED_APPS:
+        try:
+            loading.get_module(app, "index")
+        except loading.NoModuleError:
+            pass
 
 def process_instance(indexer, action, instance):
     if action == "delete":

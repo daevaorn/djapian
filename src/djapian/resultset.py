@@ -1,8 +1,8 @@
-# -*- encoding: utf-8 -*-
+import xapian
 
 class SearchQuery(object):
-    def __init__(self, indexer, query_str, offset=None, limit=None,
-                 order_by=None, prefetch=False, flags=None, stemming_lang=None):
+    def __init__(self, indexer, query_str, offset=0, limit=100000,
+                 order_by=None, prefetch=False, flags=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
@@ -10,7 +10,6 @@ class SearchQuery(object):
         self._order_by = order_by
         self._prefetch = prefetch
         self._flags = flags
-        self._stemming_lang = stemming_lang
         self._resultset_cache = None
 
     def _clone(self, **kwargs):
@@ -21,17 +20,11 @@ class SearchQuery(object):
             "limit": self._limit,
             "order_by": self._order_by,
             "prefetch": self._prefetch,
-            "flags": self._flags,
-            "stemming_lang": self._stemming_lang
+            "flags": self._flags
         }
         keys = data.keys()
 
         data.update(kwargs)
-
-        #delta = set(data.keys()) - set(keys)
-
-        #if delta:
-        #    raise ValueError("Illegal params: %s" % ", ".join(list(delta)))
 
         return SearchQuery(**data)
 
@@ -44,8 +37,8 @@ class SearchQuery(object):
     def flags(self, flags):
         return self._clone(flags=flags)
 
-    def stemming(self, lang):
-        return self._clone(stemming_lang=lang)
+    #def stemming(self, lang):
+    #    return self._clone(stemming_lang=lang)
 
     def count(self):
         return self._clone()._get_data().get_count()
@@ -57,8 +50,7 @@ class SearchQuery(object):
                 self._offset,
                 self._limit,
                 self._order_by,
-                self._flags,
-                self._stemming_lang
+                self._flags
             )
             if self._prefetch:
                 self._resultset_cache.prefetch()
@@ -92,9 +84,6 @@ class SearchQuery(object):
                     limit=1
                 )
 
-    def get_corrected_query_string(self):
-        return self.corrected_query_string
-
 class ResultSet(object):
     def __init__(self, indexer, mset):
         self.indexer = indexer
@@ -115,26 +104,27 @@ class ResultSet(object):
             self._hits_cache[pks[uid]].instance = instance
 
     def _iter_results(self):
-        import xapian
-
         if self._hits_cache is None:
             self._hits_cache = []
             for match in self.mset:
                 self._hits_cache.append(Hit(
-                    match[xapian.MSET_DOCUMENT].get_value(UID_VALUE_NUMBER),
+                    match[xapian.MSET_DOCUMENT].get_value(1),
                     match[xapian.MSET_PERCENT],
+                    match[xapian.MSET_DOCUMENT].get_value(2)
                 ))
-        return self._hits_cache
+        for hit in self._hits_cache:
+            yield hit
 
     def __iter__(self):
         return self._iter_results()
 
 class Hit(object):
     def __init__(self, uid, score, model, instance=None):
+        from django.db.models import get_model
         self.uid = uid
         self.score = score
-        self.model = model
-        self._instance=instance
+        self.model = get_model(*model.split('.'))
+        self._instance = instance
 
     def get_instance(self):
         if self._instance is None:

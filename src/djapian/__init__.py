@@ -4,6 +4,7 @@ from django.conf import settings
 
 from djapian.indexer import Field, Indexer
 from djapian.database import Database
+from djapian.utils import load_indexes
 
 indexer_map = {}
 

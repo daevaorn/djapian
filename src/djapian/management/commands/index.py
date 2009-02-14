@@ -1,30 +1,16 @@
 # -*- coding: utf-8 -*-
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils.daemonize import become_daemon
 
 import os
 import sys
-import time
 from datetime import datetime
 from optparse import make_option
 
 from djapian.models import Change
 from djapian import utils
-
-def do_fork():
-    try:
-        pid = os.fork()
-    except OSError, e:
-        raise Exception("%s [%d]" % (e.strerror, e.errno))
-
-    if pid != 0:
-        os._exit(0)
-
-    return 0
-
-def daemonize():
-    do_fork()
-    do_fork()
+import djapian
 
 @transaction.commit_manually
 def update_changes(verbose, timeout, once):
@@ -32,29 +18,20 @@ def update_changes(verbose, timeout, once):
         changes = Change.objects.all().order_by("-date")
         objs_count = changes.count()
 
-        if verbose:
-            remain = float(objs_count)
-            time_ = time.time()
-
         if objs_count > 0 and verbose:
             print 'There are %d objects to update' % objs_count
+
         # The objects must be sorted by date
         for change in changes:
             change.process()
             change.delete()
 
             if verbose:
-                remain -= 1
-                if objs_count == 0:
-                    objs_count = 1
-                done = 100-(remain*100)/objs_count
-                fill = '#'*int((80*done/100))
-                fill += ' '*int(80-(80*done/100))
-                sys.stdout.write(' \033[47m\033[31m%02.2f%%\033[34m[%s] '
-                                 '\033[35m- %d objs missing\r' % (done, fill, remain))
+                sys.stdout.write('.')
                 sys.stdout.flush()
+
         if verbose and objs_count > 0:
-            print '\033[0;0m'
+            print '\n'
 
         # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
         # turned off by default according to PEP 249. See also:
@@ -70,12 +47,10 @@ def update_changes(verbose, timeout, once):
         time.sleep(timeout)
 
 def rebuild(verbosity):
-    from django.db.models import get_models
-
-    for model in get_models():
-        if hasattr(model, "indexer"):
+    for model, indexers in djapian.indexer_map.iteritems():
+        for indexer in indexers:
             for obj in model._default_manager.all():
-                utils.process_instance(model.indexer, "add", obj)
+                utils.process_instance(indexer, "add", obj)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
@@ -106,8 +81,10 @@ class Command(BaseCommand):
 
     def handle(self, verbosity=False, make_daemon=False, timeout=10,
                rebuild_index=False, *args, **options):
+        utils.load_indexes()
+
         if make_daemon:
-            daemonize()
+            become_daemon()
 
         if rebuild_index:
             rebuild(verbosity)

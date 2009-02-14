@@ -21,6 +21,7 @@ class Database(object):
                 raise ValueError("Attribute with name `%s` is already exsits" % attach_as)
             else:
                 model.add_to_class(attach_as, indexer)
+        return indexer
 
     def open(self, write=False):
         """
@@ -49,7 +50,6 @@ class Database(object):
             self._path,
             xapian.DB_CREATE_OR_OPEN,
         )
-        database.close()
         del database
 
     def document_count(self):
