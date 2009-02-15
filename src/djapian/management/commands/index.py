@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.daemonize import become_daemon
