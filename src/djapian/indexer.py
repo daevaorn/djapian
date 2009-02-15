@@ -279,11 +279,13 @@ class Indexer(object):
                                  " because it doen't exist in index" % order_by)
 
             enquire.set_sort_by_relevance_then_value(valueno, ascending)
+
+        query, query_parser = self._parse_query(query, database, flags)
         enquire.set_query(
-            self._parse_query(query, database, flags)
+            query
         )
 
-        return enquire.get_mset(offset, limit)
+        return enquire.get_mset(offset, limit), query, query_parser
 
     def _get_stem_language(self, obj=None):
         """
@@ -327,7 +329,7 @@ class Indexer(object):
 
         return value
 
-    def _parse_query(self, term, db, flags=None):
+    def _parse_query(self, term, db, flags):
         """
         Parses search queries
         """
@@ -348,12 +350,6 @@ class Indexer(object):
             query_parser.set_stemmer(xapian.Stem(stemming_lang))
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
 
-        if flags is not None:
-            parsed_query = query_parser.parse_query(term, flags)
-        else:
-            parsed_query = query_parser.parse_query(term)
+        parsed_query = query_parser.parse_query(term, flags)
 
-        # This will only work if the flag FLAG_SPELLING_CORRECTION is set
-        self.corrected_query_string = query_parser.get_corrected_query_string()
-
-        return parsed_query
+        return parsed_query, query_parser

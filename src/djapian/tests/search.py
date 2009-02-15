@@ -33,3 +33,9 @@ class AliasesTest(BaseTestCase):
 
     def test_result(self):
         self.assertEqual(len(self.result), 10)
+
+class CorrectedQueryStringTest(BaseIndexerTest, BaseTestCase):
+    def test_correction(self):
+        results = Entry.indexer.search("texte").spell_correction()
+
+        self.assertEqual(results.get_corrected_query_string(), "text")

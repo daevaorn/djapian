@@ -1,6 +1,6 @@
 from django.core.paginator import Paginator
 
-from djapian.tests.utils import BaseTestCase, Entry
+from djapian.tests.utils import BaseTestCase, Entry, Person
 
 class ResultSetPaginationTest(BaseTestCase):
     num_entries = 100

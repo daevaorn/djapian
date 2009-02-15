@@ -22,9 +22,20 @@ class ResultSet(object):
         self._limit = limit
         self._order_by = order_by
         self._prefetch = prefetch
+
+        if flags is None:
+            flags = xapian.QueryParser.FLAG_PHRASE\
+                        | xapian.QueryParser.FLAG_BOOLEAN\
+                        | xapian.QueryParser.FLAG_LOVEHATE
         self._flags = flags
+
         self._resultset_cache = None
         self._mset = None
+        self._query = None
+        self._query_parser = None
+
+    def spell_correction(self):
+        return self._clone(flags=self._flags | xapian.QueryParser.FLAG_SPELLING_CORRECTION)
 
     def prefetch(self):
         return self._clone(prefetch=True)
@@ -40,6 +51,11 @@ class ResultSet(object):
 
     def count(self):
         return self._clone()._do_count()
+
+    def get_corrected_query_string(self):
+        self._fetch_results()
+        # This will only work if the flag FLAG_SPELLING_CORRECTION is set
+        return self._query_parser.get_corrected_query_string()
 
     def _clone(self, **kwargs):
         data = {
@@ -78,7 +94,7 @@ class ResultSet(object):
 
     def _fetch_results(self):
         if self._resultset_cache is None:
-            self._mset = self._indexer._do_search(
+            self._mset, self._query, self._query_parser = self._indexer._do_search(
                 self._query_str,
                 self._offset,
                 self._limit,

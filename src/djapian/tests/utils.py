@@ -79,4 +79,4 @@ class BaseIndexerTest(object):
             )
         ]
 
-        Entry.indexer.update(self.entries)
+        Entry.indexer.update()
