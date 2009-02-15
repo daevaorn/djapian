@@ -216,14 +216,14 @@ class Indexer(object):
     def search(self, query):
         return ResultSet(self, query)
 
-    def delete(self, doc_id, database=None):
+    def delete(self, obj, database=None):
         """
         Delete a document from index
         """
         try:
             if database is None:
                 database = self._db.open(write=True)
-            database.delete_document('UID%d' % doc_id)
+            database.delete_document(self._create_uid(obj))
         except (IOError, RuntimeError, xapian.DocNotFoundError), e:
             pass
 
@@ -239,7 +239,11 @@ class Indexer(object):
     # Private Indexer interface
 
     def _get_meta_values(self, obj):
-        return [obj.pk, self._model_name, self.__class__.get_descriptor()]
+        if isinstance(obj, models.Model):
+            pk = obj.pk
+        else:
+            pk = obj
+        return [pk, self._model_name, self.__class__.get_descriptor()]
 
     def _insert_meta_values(self, doc, obj, start=1):
         for value in self._get_meta_values(obj):
