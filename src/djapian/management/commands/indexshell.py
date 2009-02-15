@@ -49,7 +49,7 @@ class Interpreter(cmd.Cmd):
         """
         model, indexer = map(int, index.split('.'))
         self._current_index = self._list[model][1][indexer]
-        print "Using `%s by %s` index" % (utils.model_name(self._list[model][0]), self._list[model][1][indexer])
+        print "Using `%s by %s` index." % (utils.model_name(self._list[model][0]), self._list[model][1][indexer])
 
     @with_index
     def do_query(self, query):
@@ -77,7 +77,7 @@ class Interpreter(cmd.Cmd):
         print "Number of indexes: %s" % reduce(operator.add, [len(indexes) for model, indexes in self._list])
 
     @with_index
-    def do_listdocs(self, slice=""):
+    def do_docslist(self, slice=""):
         """
         Returns count of objects in index
         """
@@ -101,6 +101,17 @@ class Interpreter(cmd.Cmd):
                 print termlist.get_term(),
                 termlist.next()
             print "\n"
+
+    @with_index
+    def do_delete(self, id):
+        """
+        Removes document by id
+        """
+        id = int(id)
+
+        db = self._current_index._db.open(write=True)
+        db.delete_document(id)
+        print "Document #%s deleted." % id
 
     def _parse_slice(self, slice="", last=None):
         if slice:
