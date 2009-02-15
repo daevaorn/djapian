@@ -13,9 +13,9 @@ from djapian import utils
 import djapian
 
 @transaction.commit_manually
-def update_changes(verbosity, timeout, once):
+def update_changes(verbose, timeout, once):
     def after_index(obj):
-        if verbosity:
+        if verbose:
             sys.stdout.write('.')
             sys.stdout.flush()
 
@@ -23,7 +23,7 @@ def update_changes(verbosity, timeout, once):
         changes = Change.objects.all().order_by("-date")# The objects must be sorted by date
         objs_count = changes.count()
 
-        if objs_count > 0 and verbosity:
+        if objs_count > 0 and verbose:
             print 'There are %d objects to update' % objs_count
 
         for change in changes:
@@ -49,9 +49,9 @@ def update_changes(verbosity, timeout, once):
 
         time.sleep(timeout)
 
-def rebuild(verbosity):
+def rebuild(verbose):
     def after_index(obj):
-        if verbosity:
+        if verbose:
             sys.stdout.write('.')
             sys.stdout.flush()
     for model, indexers in djapian.indexer_map.iteritems():
@@ -60,7 +60,7 @@ def rebuild(verbosity):
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
-        make_option('--verbosity', action='store_true', default=False,
+        make_option('--verbose', action='store_true', default=False,
                     help='Verbosity output'),
         make_option("--daemonize", dest="make_daemon", default=False,
                     action="store_true",
@@ -76,7 +76,7 @@ class Command(BaseCommand):
 
     requires_model_validation = True
 
-    def handle(self, verbosity=False, make_daemon=False, timeout=10,
+    def handle(self, verbose=False, make_daemon=False, timeout=10,
                rebuild_index=False, *args, **options):
         utils.load_indexes()
 
@@ -84,9 +84,9 @@ class Command(BaseCommand):
             become_daemon()
 
         if rebuild_index:
-            rebuild(verbosity)
+            rebuild(verbose)
         else:
-            update_changes(verbosity, timeout, not make_daemon)
+            update_changes(verbose, timeout, not make_daemon)
 
-        if verbosity:
+        if verbose:
             print '\n'
