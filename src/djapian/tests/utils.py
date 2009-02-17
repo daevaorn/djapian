@@ -5,8 +5,8 @@ from datetime import datetime
 from django.db import models
 from django.test import TestCase
 
+import djapian
 from djapian import Indexer, Field
-
 
 class Person(models.Model):
     name = models.CharField(max_length=150)
@@ -16,7 +16,6 @@ class Person(models.Model):
 
     class Meta:
         app_label = "djapian"
-
 
 class Entry(models.Model):
     author = models.ForeignKey(Person, related_name="entries")
@@ -40,43 +39,44 @@ class Entry(models.Model):
     class Meta:
         app_label = "djapian"
 
-entry_indexer = Indexer(
-                    model=Entry,
-                    fields=["text"],
-                    tags=[
-                        ("author", "author.name"),
-                        ("title", "title", 3),
-                        ("tag", "tags", 2),
-                        ("date", "created_on"),
-                        ("active", "is_active"),
-                        ("count", "asset_count"),
-                        ("editors", "editors"),
-                    ],
-                    aliases={
-                        "title": "subject",
-                        "author": "user",
-                    },
-                    trigger=lambda obj: obj.is_active,
-            )
+class EntryIndexer(Indexer):
+    fields=["text"]
+    tags=[
+        ("author", "author.name"),
+        ("title", "title", 3),
+        ("tag", "tags", 2),
+        ("date", "created_on"),
+        ("active", "is_active"),
+        ("count", "asset_count"),
+        ("editors", "editors"),
+    ]
+    aliases={
+        "title": "subject",
+        "author": "user",
+    }
+    trigger=lambda indexer, obj: obj.is_active
 
+indexer = djapian.add_index(Entry, EntryIndexer, attach_as="indexer")
 
 class BaseTestCase(TestCase):
-
     def tearDown(self):
         Entry.indexer.clear()
 
-
 class BaseIndexerTest(object):
-
     def setUp(self):
         p = Person.objects.create(name="Alex")
-        entry1 = Entry.objects.create(author=p,
-                                      title="Test entry",
-                                      text="Not large text field")
-        entry2 = Entry.objects.create(author=p,
-                                      title="Another test entry",
-                                      is_active=False)
 
-        self.entries = [entry1, entry2]
+        self.entries= [
+            Entry.objects.create(
+                author=p,
+                title="Test entry",
+                text="Not large text field"
+            ),
+            Entry.objects.create(
+                author=p,
+                title="Another test entry",
+                is_active=False
+            )
+        ]
 
-        Entry.indexer.update(self.entries)
+        Entry.indexer.update()

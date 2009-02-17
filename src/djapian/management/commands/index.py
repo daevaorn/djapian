@@ -1,60 +1,39 @@
-# -*- coding: utf-8 -*-
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils.daemonize import become_daemon
 
 import os
 import sys
-import time
 from datetime import datetime
 from optparse import make_option
 
 from djapian.models import Change
 from djapian import utils
-
-def do_fork():
-    try:
-        pid = os.fork()
-    except OSError, e:
-        raise Exception("%s [%d]" % (e.strerror, e.errno))
-
-    if pid != 0:
-        os._exit(0)
-
-    return 0
-
-def daemonize():
-    do_fork()
-    do_fork()
+import djapian
 
 @transaction.commit_manually
 def update_changes(verbose, timeout, once):
-    while True:
-        changes = Change.objects.all().order_by("-date")
-        objs_count = changes.count()
-
+    def after_index(obj):
         if verbose:
-            remain = float(objs_count)
-            time_ = time.time()
+            sys.stdout.write('.')
+            sys.stdout.flush()
+
+    while True:
+        changes = Change.objects.all().order_by("-date")# The objects must be sorted by date
+        objs_count = changes.count()
 
         if objs_count > 0 and verbose:
             print 'There are %d objects to update' % objs_count
-        # The objects must be sorted by date
-        for change in changes:
-            change.process()
-            change.delete()
 
-            if verbose:
-                remain -= 1
-                if objs_count == 0:
-                    objs_count = 1
-                done = 100-(remain*100)/objs_count
-                fill = '#'*int((80*done/100))
-                fill += ' '*int(80-(80*done/100))
-                sys.stdout.write(' \033[47m\033[31m%02.2f%%\033[34m[%s] '
-                                 '\033[35m- %d objs missing\r' % (done, fill, remain))
-                sys.stdout.flush()
-        if verbose and objs_count > 0:
-            print '\033[0;0m'
+        for change in changes:
+            indexers = djapian.indexer_map[change.content_type.model_class()]
+
+            for indexer in indexers:
+                if change.action == "delete":
+                    indexer.delete(change.object_id)
+                else:
+                    indexer.update([change.object], after_index)
+            change.delete()
 
         # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
         # turned off by default according to PEP 249. See also:
@@ -69,34 +48,26 @@ def update_changes(verbose, timeout, once):
 
         time.sleep(timeout)
 
-def rebuild(verbosity):
-    from django.db.models import get_models
-
-    for model in get_models():
-        if hasattr(model, "indexer"):
-            for obj in model._default_manager.all():
-                utils.process_instance(model.indexer, "add", obj)
+def rebuild(verbose):
+    def after_index(obj):
+        if verbose:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+    for model, indexers in djapian.indexer_map.iteritems():
+        for indexer in indexers:
+            indexer.update(after_index=after_index)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
-        make_option('--verbosity',
-                    action='store_true',
-                    default=False,
+        make_option('--verbose', action='store_true', default=False,
                     help='Verbosity output'),
-        make_option("--daemonize",
-                    dest="make_daemon",
-                    default=False,
+        make_option("--daemonize", dest="make_daemon", default=False,
                     action="store_true",
                     help="Do not fork the process"),
-        make_option("--time-out",
-                    dest="timeout",
-                    default=10,
-                    type="int",
+        make_option("--time-out", dest="timeout", default=10, type="int",
                     help="Time to sleep between each query to the"
                          " database (default: %default)"),
-        make_option("--rebuild",
-                    dest="rebuild_index",
-                    default=False,
+        make_option("--rebuild", dest="rebuild_index", default=False,
                     action="store_true",
                     help="Rebuild index database"),
     )
@@ -104,12 +75,17 @@ class Command(BaseCommand):
 
     requires_model_validation = True
 
-    def handle(self, verbosity=False, make_daemon=False, timeout=10,
+    def handle(self, verbose=False, make_daemon=False, timeout=10,
                rebuild_index=False, *args, **options):
+        utils.load_indexes()
+
         if make_daemon:
-            daemonize()
+            become_daemon()
 
         if rebuild_index:
-            rebuild(verbosity)
+            rebuild(verbose)
         else:
-            update_changes(verbosity, timeout, not make_daemon)
+            update_changes(verbose, timeout, not make_daemon)
+
+        if verbose:
+            print '\n'
