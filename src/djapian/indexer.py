@@ -176,6 +176,7 @@ class Indexer(object):
             generator = xapian.TermGenerator()
             generator.set_database(database)
             generator.set_document(doc)
+            generator.set_flags(xapian.TermGenerator.FLAG_SPELLING)
 
             stem_lang = self._get_stem_language(obj)
             if stem_lang:
@@ -202,8 +203,10 @@ class Indexer(object):
                     if index_value is not None:
                         doc.add_value(valueno, smart_unicode(index_value))
                     valueno += 1
-
-                generator.index_text(smart_unicode(value), field.weight, smart_unicode(field.get_tag()))
+                prefix = smart_unicode(field.get_tag())
+                generator.index_text(smart_unicode(value), field.weight, prefix)
+                if prefix:  # if prefixed then also index without prefix
+                    generator.index_text(smart_unicode(value), field.weight)
 
             database.replace_document(uid, doc)
             #FIXME: ^ may raise InvalidArgumentError when word in

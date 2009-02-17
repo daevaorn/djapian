@@ -35,7 +35,10 @@ class ResultSet(object):
         self._query_parser = None
 
     def spell_correction(self):
-        return self._clone(flags=self._flags | xapian.QueryParser.FLAG_SPELLING_CORRECTION)
+        return self._clone(
+            flags=self._flags | xapian.QueryParser.FLAG_SPELLING_CORRECTION\
+                                | xapian.QueryParser.FLAG_WILDCARD
+        )
 
     def prefetch(self):
         return self._clone(prefetch=True)
@@ -53,8 +56,8 @@ class ResultSet(object):
         return self._clone()._do_count()
 
     def get_corrected_query_string(self):
+        print self._flags
         self._fetch_results()
-        # This will only work if the flag FLAG_SPELLING_CORRECTION is set
         return self._query_parser.get_corrected_query_string()
 
     def _clone(self, **kwargs):
