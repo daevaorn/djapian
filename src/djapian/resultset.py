@@ -56,7 +56,6 @@ class ResultSet(object):
         return self._clone()._do_count()
 
     def get_corrected_query_string(self):
-        print self._flags
         self._fetch_results()
         return self._query_parser.get_corrected_query_string()
 
