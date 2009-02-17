@@ -1,10 +1,9 @@
 TODO list for the project:
 
-- add lazy result fetching
-- add aliases for tags fields
-- add query preprocessor for replace boolean operators with athers, locale specific for example
-- add support for omposite indexer with multiple databases
+- add query preprocessor for replace boolean operators with others, locale specific for example
+- add support for composite indexer with multiple databases
 - add support for filtering result set with specific values
-- add 'index.py' auto discovery for every application
 - add logging to indexer
 - add support for xapian transactions
+- add support for ranges search
+- handle corrected query string
