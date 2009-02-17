@@ -29,7 +29,7 @@ class Interpreter(cmd.Cmd):
 
     def do_list(self, arg):
         """
-        Lists all available indexes
+        Lists all available indexes with their ids
         """
         for i, pair in enumerate(self._list):
             model, indexers = pair
@@ -73,6 +73,9 @@ class Interpreter(cmd.Cmd):
         print self._current_index.document_count()
 
     def do_stats(self, arg):
+        """
+        Print index status information
+        """
         import operator
         print "Number of indexes: %s" % reduce(operator.add, [len(indexes) for model, indexes in self._list])
 
