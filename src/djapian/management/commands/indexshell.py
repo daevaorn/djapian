@@ -129,7 +129,8 @@ class Interpreter(cmd.Cmd):
         return start, end
 
 class Command(BaseCommand):
-    help = "This is the Djapian shell that provides capabilities to query indexes."
+    help = "Djapian shell that provides capabilities to monitoring indexes."
+    args = '[index_id]'
 
     requires_model_validation = True
 
