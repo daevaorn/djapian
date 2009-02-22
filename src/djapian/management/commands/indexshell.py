@@ -109,7 +109,6 @@ class Interpreter(cmd.Cmd):
         db = self._current_index._db.open()
 
         start, end = self._parse_slice(slice, default=(1, db.get_lastdocid()))
-        print start, end
 
         for i in range(start, end + 1):
             doc = db.get_document(i)
