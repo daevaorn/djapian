@@ -66,7 +66,7 @@ class Indexer(object):
         """
         self._db = db
         self._model = model
-        self._model_name = ".".join([model._meta.app_label, model._meta.object_name.lower()])
+        self._model_name = utils.model_name(model)
 
         self.fields = [] # Simple text fields
         self.tags = [] # Prefixed fields
@@ -231,8 +231,7 @@ class Indexer(object):
             pass
 
     def document_count(self):
-        database = self._db.open()
-        return database.get_doccount()
+        return self._db.document_count()
 
     __len__ = document_count
 
@@ -360,3 +359,15 @@ class Indexer(object):
         parsed_query = query_parser.parse_query(term, flags)
 
         return parsed_query, query_parser
+
+class CompositeIndexer(Indexer):
+    def __init__(self, *indexers):
+        from djapian.database import CompositeDatabase
+
+        self._db = CompositeDatabase([indexer._db for indexer in indexers])
+
+    def clear(self):
+        raise NotImplementedError
+
+    def update(self, *args):
+        raise NotImplementedError
