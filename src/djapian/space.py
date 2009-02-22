@@ -10,7 +10,7 @@ class IndexSpace(object):
     instances = []
 
     def __init__(self, base_dir, name):
-        self._base_dir = base_dir
+        self._base_dir = os.path.abspath(base_dir)
         self._indexers = SortedDict()
         self._name = name
 
