@@ -59,7 +59,7 @@ class Interpreter(cmd.Cmd):
         """
         Changes current index
         """
-        space, model, indexer = self._get_indexers(index)
+        space, model, indexer = self._get_indexer(index)
 
         self._current_index = indexer
 

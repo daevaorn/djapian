@@ -57,7 +57,7 @@ class ResultSet(object):
         return self._clone()._do_count()
 
     def get_corrected_query_string(self):
-        self._fetch_results()
+        self._get_mset()
         return self._query_parser.get_corrected_query_string()
 
     def _clone(self, **kwargs):
@@ -71,14 +71,12 @@ class ResultSet(object):
             "flags": self._flags,
             "stemming_lang": self._stemming_lang
         }
-        keys = data.keys()
-
         data.update(kwargs)
 
         return ResultSet(**data)
 
     def _do_count(self):
-        self._fetch_results()
+        self._get_mset()
 
         return self._mset.size()
 
@@ -96,8 +94,8 @@ class ResultSet(object):
             for hit in hits:
                 hit.instance = instances[hit.pk]
 
-    def _fetch_results(self):
-        if self._resultset_cache is None:
+    def _get_mset(self):
+        if self._mset is None:
             self._mset, self._query, self._query_parser = self._indexer._do_search(
                 self._query_str,
                 self._offset,
@@ -106,6 +104,10 @@ class ResultSet(object):
                 self._flags,
                 self._stemming_lang
             )
+
+    def _fetch_results(self):
+        if self._resultset_cache is None:
+            self._get_mset()
             self._parse_results()
 
         return self._resultset_cache
