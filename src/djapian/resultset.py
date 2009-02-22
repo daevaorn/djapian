@@ -15,7 +15,7 @@ class defaultdict(dict):
 
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
-                 order_by=None, prefetch=False, flags=None):
+                 order_by=None, prefetch=False, flags=None, stemming_lang=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
@@ -28,6 +28,7 @@ class ResultSet(object):
                         | xapian.QueryParser.FLAG_BOOLEAN\
                         | xapian.QueryParser.FLAG_LOVEHATE
         self._flags = flags
+        self._stemming_lang = stemming_lang
 
         self._resultset_cache = None
         self._mset = None
@@ -49,8 +50,8 @@ class ResultSet(object):
     def flags(self, flags):
         return self._clone(flags=flags)
 
-    #def stemming(self, lang):
-    #    return self._clone(stemming_lang=lang)
+    def stemming(self, lang):
+        return self._clone(stemming_lang=lang)
 
     def count(self):
         return self._clone()._do_count()
@@ -67,7 +68,8 @@ class ResultSet(object):
             "limit": self._limit,
             "order_by": self._order_by,
             "prefetch": self._prefetch,
-            "flags": self._flags
+            "flags": self._flags,
+            "stemming_lang": self._stemming_lang
         }
         keys = data.keys()
 
@@ -101,7 +103,8 @@ class ResultSet(object):
                 self._offset,
                 self._limit,
                 self._order_by,
-                self._flags
+                self._flags,
+                self._stemming_lang
             )
             self._parse_results()
 

@@ -259,7 +259,7 @@ class Indexer(object):
         """
         return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
-    def _do_search(self, query, offset, limit, order_by, flags):
+    def _do_search(self, query, offset, limit, order_by, flags, stemming_lang):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -286,7 +286,7 @@ class Indexer(object):
 
             enquire.set_sort_by_relevance_then_value(valueno, ascending)
 
-        query, query_parser = self._parse_query(query, database, flags)
+        query, query_parser = self._parse_query(query, database, flags, stemming_lang)
         enquire.set_query(
             query
         )
@@ -299,11 +299,14 @@ class Indexer(object):
         """
         language = getattr(settings, "DJAPIAN_STEMMING_LANG", "none") # Use the language defined in DJAPIAN_STEMMING_LANG
 
-        if obj:
-            try:
-                language = Field(self.stemming_lang_accessor).resolve(obj)
-            except AttributeError:
-                pass
+        if language == "multi":
+            if obj:
+                try:
+                    language = Field(self.stemming_lang_accessor).resolve(obj)
+                except AttributeError:
+                    pass
+            else:
+                language = "none"
 
         return language
 
@@ -335,7 +338,7 @@ class Indexer(object):
 
         return value
 
-    def _parse_query(self, term, db, flags):
+    def _parse_query(self, term, db, flags, stemming_lang):
         """
         Parses search queries
         """
@@ -351,7 +354,9 @@ class Indexer(object):
         query_parser.set_database(db)
         query_parser.set_default_op(xapian.Query.OP_AND)
 
-        stemming_lang = self._get_stem_language()
+        if stemming_lang in (None, "none"):
+            stemming_lang = self._get_stem_language()
+
         if stemming_lang:
             query_parser.set_stemmer(xapian.Stem(stemming_lang))
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
