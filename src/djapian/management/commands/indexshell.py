@@ -1,6 +1,8 @@
 import sys
 import cmd
+
 from django.core.management.base import BaseCommand
+from django.utils.text import smart_split
 
 from djapian import utils
 from djapian import IndexSpace
@@ -12,6 +14,14 @@ def with_index(func):
             return
 
         return func(cmd, arg)
+    _decorator.__doc__ = func.__doc__
+    return _decorator
+
+def split_arg(func):
+    def _decorator(cmd, arg):
+        bits = list(smart_split(arg))
+
+        return func(cmd, bits)
     _decorator.__doc__ = func.__doc__
     return _decorator
 
