@@ -1,10 +1,14 @@
 import operator
 import os
+import new
 
+from django.db import models
 from django.conf import settings
 from django.utils.datastructures import SortedDict
 
+from djapian import utils
 from djapian.database import Database
+from djapian.indexer import Indexer
 
 class IndexSpace(object):
     instances = []
@@ -61,4 +65,20 @@ class IndexSpace(object):
             return []
 
     def create_default_indexer(self, model):
-        pass
+        tags = []
+        fields = []
+
+        for field in model._meta.field:
+            if isinstance(field, models.TestField):
+                fields.append(field.attname)
+            else:
+                tags.append((field.name, field.attname))
+
+        return new.classobj(
+            "Default%sIndexer" % utils.model_name(model).replace('.', ''),
+            (Indexer,),
+            {
+                "tags": tags,
+                "fields": fields
+            }
+        )
