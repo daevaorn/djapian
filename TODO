@@ -1,9 +1,7 @@
 TODO list for the project:
 
 - add query preprocessor for replace boolean operators with others, locale specific for example
-- add support for composite indexer with multiple databases
 - add support for filtering result set with specific values
 - add logging to indexer
 - add support for xapian transactions
 - add support for ranges search
-- handle corrected query string
