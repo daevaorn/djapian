@@ -15,13 +15,16 @@ class defaultdict(dict):
 
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
-                 order_by=None, prefetch=False, flags=None, stemming_lang=None):
+                 order_by=None, prefetch=False, flags=None, stemming_lang=None,
+                 filter=None, exclude=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
         self._limit = limit
         self._order_by = order_by
         self._prefetch = prefetch
+        self._filter = filter or {}
+        self._exclude = exclude or {}
 
         if flags is None:
             flags = xapian.QueryParser.FLAG_PHRASE\
@@ -60,6 +63,28 @@ class ResultSet(object):
         self._get_mset()
         return self._query_parser.get_corrected_query_string()
 
+    def filter(**fields):
+        clone = self._clone()
+        clone._check_fields(fields.keys())
+        clone._filter.update(fields)
+
+        return clone
+
+    def exclude(**fields):
+        clone = self._clone()
+        clone._check_fields(fields.keys())
+        clone._exclude.update(fields)
+
+        return clone
+
+    # Private methods
+    def _check_fieds(self, fields):
+        known_fields = set([f.prefix for f in self._indexer.tags])
+
+        for field in fields:
+            if field not in known_fields:
+                raise ValueError("Unknown field '%s'" % field)
+
     def _clone(self, **kwargs):
         data = {
             "indexer": self._indexer,
@@ -69,7 +94,9 @@ class ResultSet(object):
             "order_by": self._order_by,
             "prefetch": self._prefetch,
             "flags": self._flags,
-            "stemming_lang": self._stemming_lang
+            "stemming_lang": self._stemming_lang,
+            "filter": self._filter.copy(),
+            "exclude": self._exclude.copy(),
         }
         data.update(kwargs)
 
