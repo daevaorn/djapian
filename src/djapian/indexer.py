@@ -79,9 +79,9 @@ class Indexer(object):
         #
         for field in self.__class__.fields:
             if isinstance(field, (tuple, list)):
-                self.fields.append(Field(field[0], field[1]))
+                self.fields.append(self.field_class(field[0], field[1]))
             else:
-                self.fields.append(Field(field))
+                self.fields.append(self.field_class(field))
 
         #
         # Parse prefixed fields
@@ -93,7 +93,7 @@ class Indexer(object):
             else:
                 weight = utils.DEFAULT_WEIGHT
 
-            self.tags.append(Field(path, weight, prefix=tag))
+            self.tags.append(self.field_class(path, weight, prefix=tag))
 
         for tag, aliases in self.__class__.aliases.iteritems():
             if self.has_tag(tag):
@@ -302,7 +302,7 @@ class Indexer(object):
         if language == "multi":
             if obj:
                 try:
-                    language = Field(self.stemming_lang_accessor).resolve(obj)
+                    language = self.field_class(self.stemming_lang_accessor).resolve(obj)
                 except AttributeError:
                     pass
             else:
