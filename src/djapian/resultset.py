@@ -16,13 +16,14 @@ class defaultdict(dict):
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
-                 filter=None, exclude=None):
+                 filter=None, exclude=None, prefetch_select_related=False):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
         self._limit = limit
         self._order_by = order_by
         self._prefetch = prefetch
+        self._prefetch_select_related = prefetch_select_related
         self._filter = filter or {}
         self._exclude = exclude or {}
 
@@ -44,8 +45,11 @@ class ResultSet(object):
                                 | xapian.QueryParser.FLAG_WILDCARD
         )
 
-    def prefetch(self):
-        return self._clone(prefetch=True)
+    def prefetch(self, select_related=False):
+        return self._clone(
+            prefetch=True,
+            prefetch_select_related=select_related
+        )
 
     def order_by(self, field):
         return self._clone(order_by=field)
@@ -93,6 +97,7 @@ class ResultSet(object):
             "limit": self._limit,
             "order_by": self._order_by,
             "prefetch": self._prefetch,
+            "prefetch_select_related": self._prefetch_select_related,
             "flags": self._flags,
             "stemming_lang": self._stemming_lang,
             "filter": self._filter.copy(),
@@ -116,7 +121,12 @@ class ResultSet(object):
         for model, hits in model_map.iteritems():
             pks = [hit.pk for hit in hits]
 
-            instances = model._default_manager.in_bulk(pks)
+            instances = model._default_manager.all()
+
+            if self._prefetch_select_related:
+                instances = instances.select_related()
+
+            instances = instances.in_bulk(pks)
 
             for hit in hits:
                 hit.instance = instances[hit.pk]
