@@ -1,4 +1,3 @@
-import operator
 import os
 import new
 
@@ -44,7 +43,7 @@ class IndexSpace(object):
 
         if attach_as is not None:
             if hasattr(model, attach_as):
-                raise ValueError("Attribute with name `%s` is already exsits" % attach_as)
+                raise ValueError("Attribute with name `%s` is already exist" % attach_as)
             else:
                 model.add_to_class(attach_as, indexer)
 

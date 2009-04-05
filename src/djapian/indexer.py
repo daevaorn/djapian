@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils.encoding import smart_unicode
 
 from djapian.resultset import ResultSet
-from djapian import utils
+from djapian import utils, decider
 
 import xapian
 
@@ -16,13 +16,48 @@ class Field(object):
     raw_types = (int, long, float, basestring, bool, models.Model,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix=""):
+    def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix="", number=None):
         self.path = path
         self.weight = weight
         self.prefix = prefix
+        self.number = number
 
     def get_tag(self):
         return self.prefix.upper()
+
+    def get_index_value(self, field_value, model):
+        """
+        Generates index values (for sorting) for given field value and its content type
+        """
+        # If it is a model field make some postprocessing of its value
+        try:
+            content_type = model._meta.get_field(self.path.split('.', 1)[0])
+        except models.FieldDoesNotExist:
+            content_type = value
+
+        value = field_value
+
+        if isinstance(content_type, (models.IntegerField, int, long)):
+            #
+            # Integer fields are stored with 12 leading zeros
+            #
+            value = '%012d' % field_value
+        elif isinstance(content_type, (models.BooleanField, bool)):
+            #
+            # Boolean fields are stored as 't' or 'f'
+            #
+            if field_value:
+                value = 't'
+            else:
+                value = 'f'
+        elif isinstance(content_type, (models.DateTimeField, datetime.datetime)):
+            #
+            # DateTime fields are stored as %Y%m%d%H%M%S (better
+            # sorting)
+            #
+            value = field_value.strftime('%Y%m%d%H%M%S')
+
+        return value
 
     def resolve(self, value):
         bits = self.path.split(".")
@@ -49,6 +84,7 @@ class Field(object):
 
 class Indexer(object):
     field_class = Field
+    decider = decider.CompositeDecider
     free_values_start_number = 11
 
     fields = []
@@ -86,6 +122,8 @@ class Indexer(object):
         #
         # Parse prefixed fields
         #
+        valueno = self.free_values_start_number
+
         for field in self.__class__.tags:
             tag, path = field[:2]
             if len(field) == 3:
@@ -93,7 +131,8 @@ class Indexer(object):
             else:
                 weight = utils.DEFAULT_WEIGHT
 
-            self.tags.append(self.field_class(path, weight, prefix=tag))
+            self.tags.append(self.field_class(path, weight, prefix=tag, number=valueno))
+            valueno += 1
 
         for tag, aliases in self.__class__.aliases.iteritems():
             if self.has_tag(tag):
@@ -111,16 +150,12 @@ class Indexer(object):
     __str__ = __unicode__
 
     def has_tag(self, name):
-        for field in self.tags:
-            if field.prefix == name:
-                return True
-
-        return False
+        return self.tag_index(name) is not None
 
     def tag_index(self, name):
-        for i, field in enumerate(self.tags):
+        for field in self.tags:
             if field.prefix == name:
-                return i
+                return field.number
 
         return None
 
@@ -182,27 +217,18 @@ class Indexer(object):
             if stem_lang:
                 generator.set_stemmer(xapian.Stem(stem_lang))
 
-            valueno = self.free_values_start_number
-
             for field in self.fields + self.tags:
                 # Trying to resolve field value or skip it
                 try:
                     value = field.resolve(obj)
                 except AttributeError:
-                    if field.prefix:
-                        valueno += 1
+                    continue
 
                 if field.prefix:
-                    # If it is a model field make some postprocessing of its value
-                    try:
-                        content_type = self._model._meta.get_field(field.path.split('.')[0])
-                    except models.FieldDoesNotExist:
-                        content_type = value
-
-                    index_value = self._get_index_value(value, content_type)
+                    index_value = field.get_index_value(value, self._model)
                     if index_value is not None:
-                        doc.add_value(valueno, smart_unicode(index_value))
-                    valueno += 1
+                        doc.add_value(field.number, smart_unicode(index_value))
+
                 prefix = smart_unicode(field.get_tag())
                 generator.index_text(smart_unicode(value), field.weight, prefix)
                 if prefix:  # if prefixed then also index without prefix
@@ -259,7 +285,8 @@ class Indexer(object):
         """
         return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
-    def _do_search(self, query, offset, limit, order_by, flags, stemming_lang):
+    def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
+                    filter, exclude):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -279,7 +306,7 @@ class Indexer(object):
                 order_by = order_by[1:]
 
             try:
-                valueno = self.free_values_start_number + self.tag_index(order_by)
+                valueno = self.tag_index(order_by)
             except (ValueError, TypeError):
                 raise ValueError("Field %s cannot be used in order_by clause"
                                  " because it doen't exist in index" % order_by)
@@ -291,7 +318,14 @@ class Indexer(object):
             query
         )
 
-        return enquire.get_mset(offset, limit), query, query_parser
+        decider = self.decider(self._model, self.tags, filter, exclude)
+
+        return enquire.get_mset(
+            offset,
+            limit,
+            None,
+            decider
+        ), query, query_parser
 
     def _get_stem_language(self, obj=None):
         """
@@ -309,34 +343,6 @@ class Indexer(object):
                 language = "none"
 
         return language
-
-    def _get_index_value(self, field_value, content_type):
-        """
-        Generates index values (for sorting) for given field value and its content type
-        """
-        value = field_value
-
-        if isinstance(content_type, (models.IntegerField, int, long)):
-            #
-            # Integer fields are stored with 12 leading zeros
-            #
-            value = '%012d' % field_value
-        elif isinstance(content_type, (models.BooleanField, bool)):
-            #
-            # Boolean fields are stored as 't' or 'f'
-            #
-            if field_value:
-                value = 't'
-            else:
-                value = 'f'
-        elif isinstance(content_type, (models.DateTimeField, datetime.datetime)):
-            #
-            # DateTime fields are stored as %Y%m%d%H%M%S (better
-            # sorting)
-            #
-            value = field_value.strftime('%Y%m%d%H%M%S')
-
-        return value
 
     def _parse_query(self, term, db, flags, stemming_lang):
         """
