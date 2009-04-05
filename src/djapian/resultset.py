@@ -67,14 +67,14 @@ class ResultSet(object):
         self._get_mset()
         return self._query_parser.get_corrected_query_string()
 
-    def filter(**fields):
+    def filter(self, **fields):
         clone = self._clone()
         clone._check_fields(fields.keys())
         clone._filter.update(fields)
 
         return clone
 
-    def exclude(**fields):
+    def exclude(self, **fields):
         clone = self._clone()
         clone._check_fields(fields.keys())
         clone._exclude.update(fields)
@@ -82,11 +82,11 @@ class ResultSet(object):
         return clone
 
     # Private methods
-    def _check_fieds(self, fields):
+    def _check_fields(self, fields):
         known_fields = set([f.prefix for f in self._indexer.tags])
 
         for field in fields:
-            if field not in known_fields:
+            if field.split('__', 1)[0] not in known_fields:
                 raise ValueError("Unknown field '%s'" % field)
 
     def _clone(self, **kwargs):
@@ -139,7 +139,9 @@ class ResultSet(object):
                 self._limit,
                 self._order_by,
                 self._flags,
-                self._stemming_lang
+                self._stemming_lang,
+                self._filter,
+                self._exclude,
             )
 
     def _fetch_results(self):
