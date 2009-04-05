@@ -18,6 +18,15 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
     def test_score(self):
         self.assert_(self.result[0].percent in (99, 100))
 
+    def test_prefetch(self):
+        result = self.result.prefetch()
+        
+        self.assertEqual(result[0].instance.author.name, 'Alex')
+
+        result = self.result.prefetch(select_related=True)
+        self.assert_(hasattr(result[0].instance, '_author_cache'))
+        self.assertEqual(result[0].instance.author.name, 'Alex')
+
 class AliasesTest(BaseTestCase):
     num_entries = 5
 
