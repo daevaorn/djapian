@@ -33,7 +33,7 @@ class Field(object):
         try:
             content_type = model._meta.get_field(self.path.split('.', 1)[0])
         except models.FieldDoesNotExist:
-            content_type = value
+            content_type = field_value
 
         value = field_value
 
