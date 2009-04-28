@@ -4,15 +4,12 @@ from distutils.core import setup
 
 setup(
     name="Djapian",
-    version="2.1",
+    version="2.2",
 
     license="New BSD License",
 
-    author='Alex Koshelev',
+    author='Alex Koshelev, Rafael "SDM" Sierra',
     author_email="daevaorn@gmail.com",
-
-    #maintainer='Rafael "SDM" Sierra',
-    #maintainer_email="rafaeljsg14@gmail.com",
 
     url="http://code.google.com/p/djapian/",
 
