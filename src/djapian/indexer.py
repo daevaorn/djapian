@@ -196,49 +196,57 @@ class Indexer(object):
 
         # Get each document received
         for obj in iterator:
-            if not self.trigger(obj):
-                self.delete(obj.pk, database)
-                continue
-
-            doc = xapian.Document()
-            #
-            # Add default terms and values
-            #
-            uid = self._create_uid(obj)
-            doc.add_term(self._create_uid(obj))
-            self._insert_meta_values(doc, obj)
-
-            generator = xapian.TermGenerator()
-            generator.set_database(database)
-            generator.set_document(doc)
-            generator.set_flags(xapian.TermGenerator.FLAG_SPELLING)
-
-            stem_lang = self._get_stem_language(obj)
-            if stem_lang:
-                generator.set_stemmer(xapian.Stem(stem_lang))
-
-            for field in self.fields + self.tags:
-                # Trying to resolve field value or skip it
-                try:
-                    value = field.resolve(obj)
-                except AttributeError:
+            database.begin_transaction()
+            try:
+                if not self.trigger(obj):
+                    self.delete(obj.pk, database)
+                    database.commit_transaction()
                     continue
 
-                if field.prefix:
-                    index_value = field.get_index_value(value, self._model)
-                    if index_value is not None:
-                        doc.add_value(field.number, smart_unicode(index_value))
+                doc = xapian.Document()
+                #
+                # Add default terms and values
+                #
+                uid = self._create_uid(obj)
+                doc.add_term(self._create_uid(obj))
+                self._insert_meta_values(doc, obj)
 
-                prefix = smart_unicode(field.get_tag())
-                generator.index_text(smart_unicode(value), field.weight, prefix)
-                if prefix:  # if prefixed then also index without prefix
-                    generator.index_text(smart_unicode(value), field.weight)
+                generator = xapian.TermGenerator()
+                generator.set_database(database)
+                generator.set_document(doc)
+                generator.set_flags(xapian.TermGenerator.FLAG_SPELLING)
 
-            database.replace_document(uid, doc)
-            #FIXME: ^ may raise InvalidArgumentError when word in
-            #         text larger than 255 simbols
-            if after_index:
-                after_index(obj)
+                stem_lang = self._get_stem_language(obj)
+                if stem_lang:
+                    generator.set_stemmer(xapian.Stem(stem_lang))
+
+                for field in self.fields + self.tags:
+                    # Trying to resolve field value or skip it
+                    try:
+                        value = field.resolve(obj)
+                    except AttributeError:
+                        continue
+
+                    if field.prefix:
+                        index_value = field.get_index_value(value, self._model)
+                        if index_value is not None:
+                            doc.add_value(field.number, smart_unicode(index_value))
+
+                    prefix = smart_unicode(field.get_tag())
+                    generator.index_text(smart_unicode(value), field.weight, prefix)
+                    if prefix:  # if prefixed then also index without prefix
+                        generator.index_text(smart_unicode(value), field.weight)
+
+                database.replace_document(uid, doc)
+                #FIXME: ^ may raise InvalidArgumentError when word in
+                #         text larger than 255 simbols
+                if after_index:
+                    after_index(obj)
+
+                database.commit_transaction()
+            except:
+                database.cancel_transaction()
+
         database.flush()
         del database
 
