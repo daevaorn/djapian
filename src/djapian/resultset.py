@@ -187,11 +187,11 @@ class ResultSet(object):
             rank = match.get_rank()
             weight = match.get_weight()
 
-            fields = dict([(tag.prefix, doc.get_value(tag.number))\
+            tags = dict([(tag.prefix, doc.get_value(tag.number))\
                                 for tag in self._indexer.tags])
 
             self._resultset_cache.append(
-                Hit(pk, model, percent, rank, weight, fields)
+                Hit(pk, model, percent, rank, weight, tags)
             )
 
         if self._prefetch:
@@ -237,13 +237,13 @@ class ResultSet(object):
             return "<ResultSet: query=%s prefetch=%s>" % (self.query_str, self._prefetch)
 
 class Hit(object):
-    def __init__(self, pk, model, percent, rank, weight, fields):
+    def __init__(self, pk, model, percent, rank, weight, tags):
         self.pk = pk
         self.model = model
         self.percent = percent
         self.rank = rank
         self.weight = weight
-        self.fields = fields
+        self.tags = tags
         self._instance = None
 
     def get_instance(self):
