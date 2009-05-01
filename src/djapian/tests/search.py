@@ -18,9 +18,14 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
     def test_score(self):
         self.assert_(self.result[0].percent in (99, 100))
 
+    def test_hit_fields(self):
+        hit = self.result[0]
+
+        self.assertEqual(hit.fields['title'], 'Test entry')
+
     def test_prefetch(self):
         result = self.result.prefetch()
-        
+
         self.assertEqual(result[0].instance.author.name, 'Alex')
 
         result = self.result.prefetch(select_related=True)
