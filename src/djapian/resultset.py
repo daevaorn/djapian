@@ -1,8 +1,10 @@
 import xapian
+import operator
+from copy import deepcopy
 
 from django.db.models import get_model
 
-from djapian import utils
+from djapian import utils, decider
 
 class defaultdict(dict):
     def __init__(self, value_type):
@@ -24,8 +26,8 @@ class ResultSet(object):
         self._order_by = order_by
         self._prefetch = prefetch
         self._prefetch_select_related = prefetch_select_related
-        self._filter = filter or {}
-        self._exclude = exclude or {}
+        self._filter = filter or decider.X()
+        self._exclude = exclude or decider.X()
 
         if flags is None:
             flags = xapian.QueryParser.FLAG_PHRASE\
@@ -67,27 +69,47 @@ class ResultSet(object):
         self._get_mset()
         return self._query_parser.get_corrected_query_string()
 
-    def filter(self, **fields):
+    def filter(self, *fields, **raw_fields):
         clone = self._clone()
-        clone._check_fields(fields.keys())
-        clone._filter.update(fields)
-
+        clone._add_filter_fields(fields, raw_fields)
         return clone
 
-    def exclude(self, **fields):
+    def exclude(self, *fields, **raw_fields):
         clone = self._clone()
-        clone._check_fields(fields.keys())
-        clone._exclude.update(fields)
-
+        clone._add_exclude_fields(fields, raw_fields)
         return clone
 
     # Private methods
+
+    def _prepare_fields(self, fields=None, raw_fields=None):
+        fields = fields and reduce(operator.and_, fields) or decider.X()
+
+        if raw_fields:
+            fields = fields & reduce(
+                operator.and_,
+                map(
+                    lambda value: decider.X(**{value[0]: value[1]}),
+                    raw_fields.iteritems()
+                )
+            )
+        self._check_fields(fields)
+        return fields
+
+    def _add_filter_fields(self, fields=None, raw_fields=None):
+        self._filter &= self._prepare_fields(fields, raw_fields)
+
+    def _add_exclude_fields(self, fields=None, raw_fields=None):
+        self._exclude &= self._prepare_fields(fields, raw_fields)
+
     def _check_fields(self, fields):
         known_fields = set([f.prefix for f in self._indexer.tags])
 
-        for field in fields:
-            if field.split('__', 1)[0] not in known_fields:
-                raise ValueError("Unknown field '%s'" % field)
+        for field in fields.children:
+            if isinstance(field, decider.X):
+                self._check_fields(field)
+            else:
+                if field[0].split('__', 1)[0] not in known_fields:
+                    raise ValueError("Unknown field '%s'" % field[0])
 
     def _clone(self, **kwargs):
         data = {
@@ -100,8 +122,8 @@ class ResultSet(object):
             "prefetch_select_related": self._prefetch_select_related,
             "flags": self._flags,
             "stemming_lang": self._stemming_lang,
-            "filter": self._filter.copy(),
-            "exclude": self._exclude.copy(),
+            "filter": deepcopy(self._filter),
+            "exclude": deepcopy(self._exclude),
         }
         data.update(kwargs)
 
