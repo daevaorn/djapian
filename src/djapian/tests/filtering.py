@@ -1,5 +1,7 @@
 from django.test import TestCase
+
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
+from djapian import X
 
 class FilteringTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
@@ -20,3 +22,7 @@ class FilteringTest(BaseIndexerTest, BaseTestCase):
 
     def test_filter_exclude(self):
         self.assertEqual(self.result.filter(count__lt=6).exclude(count=5).count(), 1)
+
+    def test_complex(self):
+        self.assertEqual(self.result.filter(X(count__lt=6) & ~X(count=5)).count(), 1)
+        self.assertEqual(self.result.filter(X(count=7) | X(count=5)).count(), 2)

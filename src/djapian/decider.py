@@ -1,11 +1,15 @@
 import operator
 import xapian
 
+from django.db import models
 from django.utils.functional import curry
+
+class X(models.Q):
+    pass
 
 class CompositeDecider(xapian.MatchDecider):
     # operators map
-    # lookup type: (operator, reverse operands, iterable value)
+    # lookup type: (operator, reverse operands)
     op_map = {
         'exact': (operator.eq, False),
         'in': (operator.contains, True),
@@ -25,13 +29,11 @@ class CompositeDecider(xapian.MatchDecider):
         self._exclude = exclude
 
     def __call__(self, document):
-        for lookup, value in self._filter.iteritems():
-            if not self._do_field(lookup, value, document):
-                return False
+        if self._filter and not self._do_x(self._filter, document):
+            return False
 
-        for lookup, value in self._exclude.iteritems():
-            if self._do_field(lookup, value, document):
-                return False
+        if self._exclude and self._do_x(self._exclude, document):
+            return False
 
         return True
 
@@ -40,6 +42,22 @@ class CompositeDecider(xapian.MatchDecider):
             if tag.number == index:
                 return tag
         raise ValueError("No tag with number '%s'" % index)
+
+    def _do_x(self, field, document):
+        for child in field.children:
+            if isinstance(child, X):
+                result = self._do_x(child, document)
+            else:
+                result = self._do_field(child[0], child[1], document)
+
+            if (result and field.connector == 'OR')\
+                or (not result and field.connector == 'AND'):
+                break
+
+        if field.negated:
+            return not result
+        else:
+            return result
 
     def _do_field(self, lookup, value, document):
         if '__' in lookup:
@@ -54,7 +72,10 @@ class CompositeDecider(xapian.MatchDecider):
 
         doc_value = document.get_value(self._values_map[field])
 
-        convert = curry(self.get_tag(self._values_map[field]).get_index_value, model=self._model)
+        convert = curry(
+            self.get_tag(self._values_map[field]).get_index_value,
+            model=self._model
+        )
 
         if isinstance(value, (list, tuple)):
             value = map(convert, value)
