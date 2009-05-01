@@ -25,7 +25,7 @@ class Field(object):
     def get_tag(self):
         return self.prefix.upper()
 
-    def get_index_value(self, field_value, model):
+    def convert(self, field_value, model):
         """
         Generates index values (for sorting) for given field value and its content type
         """
@@ -228,7 +228,7 @@ class Indexer(object):
                         continue
 
                     if field.prefix:
-                        index_value = field.get_index_value(value, self._model)
+                        index_value = field.convert(value, self._model)
                         if index_value is not None:
                             doc.add_value(field.number, smart_unicode(index_value))
 
