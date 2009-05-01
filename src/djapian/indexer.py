@@ -82,6 +82,12 @@ class Field(object):
             return ", ".join(value.all())
         return None
 
+    def extract(self, document):
+        if self.number:
+            return document.get_value(self.number)
+
+        return None
+
 class Indexer(object):
     field_class = Field
     decider = decider.CompositeDecider

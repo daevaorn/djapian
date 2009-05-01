@@ -187,7 +187,7 @@ class ResultSet(object):
             rank = match.get_rank()
             weight = match.get_weight()
 
-            tags = dict([(tag.prefix, doc.get_value(tag.number))\
+            tags = dict([(tag.prefix, tag.extract(doc))\
                                 for tag in self._indexer.tags])
 
             self._resultset_cache.append(
