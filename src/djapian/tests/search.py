@@ -21,7 +21,7 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
     def test_hit_fields(self):
         hit = self.result[0]
 
-        self.assertEqual(hit.fields['title'], 'Test entry')
+        self.assertEqual(hit.tags['title'], 'Test entry')
 
     def test_prefetch(self):
         result = self.result.prefetch()
