@@ -56,6 +56,8 @@ class Field(object):
             # sorting)
             #
             value = field_value.strftime('%Y%m%d%H%M%S')
+        elif isinstance(content_type, (float, models.FloatField)):
+            value = '%.10f' % value
 
         return value
 
