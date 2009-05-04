@@ -15,6 +15,8 @@ class FilteringTest(BaseIndexerTest, BaseTestCase):
 
         self.assertEqual(self.result.filter(count__in=[5, 7]).count(), 2)
 
+        self.assertEqual(self.result.filter(rating__lte=4.5).count(), 2)
+
     def test_exclude(self):
         self.assertEqual(self.result.exclude(count=5).count(), 2)
         self.assertEqual(self.result.exclude(count__lt=6).count(), 1)

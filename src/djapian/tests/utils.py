@@ -21,6 +21,7 @@ class Entry(models.Model):
     title = models.CharField(max_length=250)
     tags = models.CharField(max_length=250, null=True)
     created_on = models.DateTimeField(default=datetime.now)
+    rating = models.FloatField(default=0)
 
     asset_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -48,6 +49,7 @@ class EntryIndexer(Indexer):
         ("active", "is_active"),
         ("count", "asset_count"),
         ("editors", "editors"),
+        ('rating', 'rating'),
     ]
     aliases={
         "title": "subject",
@@ -69,11 +71,13 @@ class BaseIndexerTest(object):
             Entry.objects.create(
                 author=self.person,
                 title="Test entry",
+                rating=4.5,
                 text="Not large text field wich helps us to test Djapian"
             ),
             Entry.objects.create(
                 author=self.person,
                 title="Another test entry",
+                rating=3.6,
                 text="Another not useful text message for tests",
                 asset_count=5,
                 created_on=datetime.now()-timedelta(hours=4)
@@ -81,6 +85,7 @@ class BaseIndexerTest(object):
             Entry.objects.create(
                 author=self.person,
                 title="Third entry for testing",
+                rating=4.65,
                 text="Third message text",
                 asset_count=7,
                 created_on=datetime.now()-timedelta(hours=2)
