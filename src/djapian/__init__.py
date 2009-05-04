@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from djapian.indexer import Field, Indexer
+from djapian.indexer import Field, Indexer, CompositeIndexer
 from djapian.database import Database
 from djapian.space import IndexSpace
 from djapian.utils import load_indexes
