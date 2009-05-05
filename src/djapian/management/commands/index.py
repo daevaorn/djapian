@@ -13,7 +13,7 @@ from djapian import utils
 from djapian import IndexSpace
 
 @transaction.commit_manually
-def update_changes(verbose, timeout, once, transaction, flush):
+def update_changes(verbose, timeout, once, use_transaction, flush):
     def after_index(obj):
         if verbose:
             sys.stdout.write('.')
@@ -37,7 +37,7 @@ def update_changes(verbose, timeout, once, transaction, flush):
                 if change.action == "delete":
                     indexer.delete(change.object_id)
                 else:
-                    indexer.update([change.object], after_index, transaction, flush)
+                    indexer.update([change.object], after_index, use_transaction, flush)
             change.delete()
 
         # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
