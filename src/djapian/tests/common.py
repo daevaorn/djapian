@@ -6,11 +6,11 @@ from djapian.models import Change
 from django.utils.encoding import force_unicode
 
 class IndexerTest(BaseTestCase):
-    def test_text_fields_count(self):
+    def test_fields_count(self):
         self.assertEqual(len(Entry.indexer.fields), 1)
 
-    def test_attributes_count(self):
-        self.assertEqual(len(Entry.indexer.tags), 7)
+    def test_tags_count(self):
+        self.assertEqual(len(Entry.indexer.tags), 8)
 
 class FieldResolverTest(BaseTestCase):
     def setUp(self):
