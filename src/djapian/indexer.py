@@ -90,6 +90,16 @@ class Field(object):
 
         return None
 
+def paginate(queue, page_size=500):
+    from django.core.paginator import Paginator
+    paginator = Paginator(queue, page_size)
+
+    for num in paginator.page_range:
+        page = paginator.page(num)
+
+        for obj in page.object_list:
+            yield obj
+
 class Indexer(object):
     field_class = Field
     decider = decider.CompositeDecider
@@ -191,19 +201,14 @@ class Indexer(object):
         # Open Xapian Database
         database = self._db.open(write=True)
 
-        # If doesnt have any document get all
+        # If doesnt have any document at all
         if documents is None:
             update_queue = self._model.objects.all()
         else:
             update_queue = documents
 
-        try:
-            iterator = update_queue.iterator()
-        except AttributeError:
-            iterator = iter(update_queue)
-
         # Get each document received
-        for obj in iterator:
+        for obj in paginate(update_queue):
             database.begin_transaction()
             try:
                 if not self.trigger(obj):
