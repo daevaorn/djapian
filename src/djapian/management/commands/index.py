@@ -13,7 +13,7 @@ from djapian import utils
 from djapian import IndexSpace
 
 @transaction.commit_manually
-def update_changes(verbose, timeout, once):
+def update_changes(verbose, timeout, once, transaction, flush):
     def after_index(obj):
         if verbose:
             sys.stdout.write('.')
@@ -37,7 +37,7 @@ def update_changes(verbose, timeout, once):
                 if change.action == "delete":
                     indexer.delete(change.object_id)
                 else:
-                    indexer.update([change.object], after_index)
+                    indexer.update([change.object], after_index, transaction, flush)
             change.delete()
 
         # Need to commit if using transactions (e.g. MySQL+InnoDB) since autocommit is
@@ -53,7 +53,7 @@ def update_changes(verbose, timeout, once):
 
         time.sleep(timeout)
 
-def rebuild(verbose):
+def rebuild(verbose, transaction, flush):
     def after_index(obj):
         if verbose:
             sys.stdout.write('.')
@@ -63,7 +63,7 @@ def rebuild(verbose):
         for model, indexers in space.get_indexers().iteritems():
             for indexer in indexers:
                 indexer.clear()
-                indexer.update(after_index=after_index)
+                indexer.update(None, after_index, transaction, flush)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
@@ -78,22 +78,29 @@ class Command(BaseCommand):
         make_option("--rebuild", dest="rebuild_index", default=False,
                     action="store_true",
                     help="Rebuild index database"),
+        make_option("--transaction", dest="transaction", default=False,
+                    action="store_true",
+                    help="Use Xapian transactions during index update"),
+        make_option("--flush", dest="flush", default=False,
+                    action="store_true",
+                    help="Flush changes on every document update"),
     )
     help = "This is the Djapian daemon used to update the index based on djapian_change table."
 
     requires_model_validation = True
 
     def handle(self, verbose=False, make_daemon=False, timeout=10,
-               rebuild_index=False, *args, **options):
+               rebuild_index=False, transaction=False, flush=False,
+               *args, **options):
         utils.load_indexes()
 
         if make_daemon:
             become_daemon()
 
         if rebuild_index:
-            rebuild(verbose)
+            rebuild(verbose, transaction, flush)
         else:
-            update_changes(verbose, timeout, not make_daemon)
+            update_changes(verbose, timeout, not make_daemon, transaction, flush)
 
         if verbose:
             print '\n'
