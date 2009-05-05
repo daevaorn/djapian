@@ -90,7 +90,7 @@ class Field(object):
 
         return None
 
-def paginate(queue, page_size=500):
+def paginate(queue, page_size=1000):
     from django.core.paginator import Paginator
     paginator = Paginator(queue, page_size)
 
@@ -183,7 +183,7 @@ class Indexer(object):
 
     # Public Indexer interface
 
-    def update(self, documents=None, after_index=None):
+    def update(self, documents=None, after_index=None, transaction=False, flush=False):
         """
         Update the database with the documents.
         There are some default value and terms in a document:
@@ -207,13 +207,35 @@ class Indexer(object):
         else:
             update_queue = documents
 
+        counter = [0]
+
+        def flush_each(count=1000):
+            """Flushes database every `count` documents"""
+            counter[0] += 1
+
+            if counter[0] % count == 0:
+                database.flush()
+
+        # make wrappers for transaction management
+        if transaction:
+            def begin():
+                database.begin_transaction(flush=flush)
+
+            def commit():
+                database.commit_transaction()
+
+            def cancel():
+                database.cancel_transaction()
+        else:
+            begin = commit = cancel = lambda: None
+
         # Get each document received
         for obj in paginate(update_queue):
-            database.begin_transaction()
+            begin()
             try:
                 if not self.trigger(obj):
                     self.delete(obj.pk, database)
-                    database.commit_transaction()
+                    commit()
                     continue
 
                 doc = xapian.Document()
@@ -256,12 +278,16 @@ class Indexer(object):
                 if after_index:
                     after_index(obj)
 
-                database.commit_transaction()
+                commit()
             except:
-                database.cancel_transaction()
+                cancel()
+
+            if flush and not transaction:
+                database.flush()
+            else:
+                flush_each()
 
         database.flush()
-        del database
 
     def search(self, query):
         return ResultSet(self, query)
