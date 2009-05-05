@@ -282,10 +282,14 @@ class Indexer(object):
             except:
                 cancel()
 
-            if flush and not transaction:
-                database.flush()
+            if transaction:
+                if not flush:
+                    flush_each()
             else:
-                flush_each()
+                if flush:
+                    database.flush()
+                else:
+                    flush_each()
 
         database.flush()
 
