@@ -1,5 +1,7 @@
 from django.test import TestCase
-from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person
+
+from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person, Comment
+from djapian.indexer import CompositeIndexer
 
 class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
@@ -53,3 +55,13 @@ class CorrectedQueryStringTest(BaseIndexerTest, BaseTestCase):
         results = Entry.indexer.search("texte").spell_correction()
 
         self.assertEqual(results.get_corrected_query_string(), "text")
+
+class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(CompositeIndexerTest, self).setUp()
+        self.indexer = CompositeIndexer(Entry.indexer, Comment.indexer)
+
+    def test_search(self):
+        results = self.indexer.search('entry')
+
+        self.assertEqual(len(results), 4) # 3 entries + 1 comment
