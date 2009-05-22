@@ -33,16 +33,17 @@ class ChangeManager(models.Manager):
 
 
 class Change(models.Model):
-    ACTIOINS = (
+    ACTIONS = (
         ("add", "object added"),
         ("edit", "object edited"),
         ("delete", "object deleted"),
     )
 
     content_type = models.ForeignKey(ContentType, db_index=True)
-    object_id = models.PositiveIntegerField()
+    object_id = models.CharField(max_length=150)
+
     date = models.DateTimeField(default=datetime.now)
-    action = models.CharField(max_length=6, choices=ACTIOINS)
+    action = models.CharField(max_length=6, choices=ACTIONS)
 
     object = generic.GenericForeignKey()
 
