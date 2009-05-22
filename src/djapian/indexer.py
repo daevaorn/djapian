@@ -118,13 +118,7 @@ class Indexer(object):
         Note that fields from other models can still be used in the index,
         but this model will be the one returned from search results.
         """
-        self._db = db
-        self._model = model
-        self._model_name = utils.model_name(model)
-
-        self.fields = [] # Simple text fields
-        self.tags = [] # Prefixed fields
-        self.aliases = {}
+        self._prepare(db, model)
 
         #
         # Parse fields
@@ -316,6 +310,15 @@ class Indexer(object):
         self._db.clear()
 
     # Private Indexer interface
+    def _prepare(self, db, model=None):
+        """Initialize attributes"""
+        self._db = db
+        self._model = model
+        self._model_name = model and utils.model_name(model)
+
+        self.fields = [] # Simple text fields
+        self.tags = [] # Prefixed fields
+        self.aliases = {}
 
     def _get_meta_values(self, obj):
         if isinstance(obj, models.Model):
@@ -426,7 +429,9 @@ class CompositeIndexer(Indexer):
     def __init__(self, *indexers):
         from djapian.database import CompositeDatabase
 
-        self._db = CompositeDatabase([indexer._db for indexer in indexers])
+        self._prepare(
+            db=CompositeDatabase([indexer._db for indexer in indexers])
+        )
 
     def clear(self):
         raise NotImplementedError

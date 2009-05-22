@@ -39,9 +39,18 @@ class Entry(models.Model):
     class Meta:
         app_label = "djapian"
 
+class Comment(models.Model):
+    entry = models.ForeignKey(Entry)
+
+    author = models.ForeignKey(Person)
+    text = models.TextField()
+
+    class Meta:
+        app_label = "djapian"
+
 class EntryIndexer(Indexer):
-    fields=["text"]
-    tags=[
+    fields = ["text"]
+    tags = [
         ("author", "author.name"),
         ("title", "title", 3),
         ("tag", "tags", 2),
@@ -51,13 +60,20 @@ class EntryIndexer(Indexer):
         ("editors", "editors"),
         ('rating', 'rating'),
     ]
-    aliases={
+    aliases = {
         "title": "subject",
         "author": "user",
     }
-    trigger=lambda indexer, obj: obj.is_active
+    trigger = lambda indexer, obj: obj.is_active
 
-indexer = djapian.add_index(Entry, EntryIndexer, attach_as="indexer")
+class CommentIndexer(Indexer):
+    fields = ['text']
+    tags = [
+        ('author', 'author.name')
+    ]
+
+djapian.add_index(Entry, EntryIndexer, attach_as='indexer')
+djapian.add_index(Comment, CommentIndexer, attach_as='indexer')
 
 class BaseTestCase(TestCase):
     def tearDown(self):
@@ -99,3 +115,13 @@ class BaseIndexerTest(object):
         ]
 
         Entry.indexer.update()
+
+        self.comments =[
+            Comment.objects.create(
+                entry=self.entries[0],
+                author=self.person,
+                text='Hey, I comment my own entry!'
+            )
+        ]
+
+        Comment.indexer.update()
