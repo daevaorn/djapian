@@ -41,6 +41,11 @@ class ResultSet(object):
         self._query = None
         self._query_parser = None
 
+    # Public methods that produce another ResultSet
+
+    def all(self):
+        return self._clone()
+
     def spell_correction(self):
         return self._clone(
             flags=self._flags | xapian.QueryParser.FLAG_SPELLING_CORRECTION\
