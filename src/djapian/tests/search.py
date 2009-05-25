@@ -15,7 +15,13 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
         self.assertEqual(self.result[0].instance, self.entries[0])
 
     def test_result_list(self):
-        self.assertEqual([r.instance for r in self.result], self.entries[0:3])
+        result = [r.instance for r in self.result]
+        result.sort(key=lambda i: i.pk)
+
+        expected = self.entries[0:3]
+        expected.sort(key=lambda i: i.pk)
+
+        self.assertEqual(result, expected)
 
     def test_score(self):
         self.assert_(self.result[0].percent in (99, 100))

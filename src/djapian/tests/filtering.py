@@ -28,3 +28,28 @@ class FilteringTest(BaseIndexerTest, BaseTestCase):
     def test_complex(self):
         self.assertEqual(self.result.filter(X(count__lt=6) & ~X(count=5)).count(), 1)
         self.assertEqual(self.result.filter(X(count=7) | X(count=5)).count(), 2)
+
+class LookupTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(LookupTest, self).setUp()
+        self.result = Entry.indexer.search("text")
+
+    def test_exact(self):
+        self.assertEqual(self.result.filter(title__startswith='Test entry').count(), 1)
+        self.assertEqual(self.result.filter(title__istartswith='test entry').count(), 1)
+
+    def test_startswith(self):
+        self.assertEqual(self.result.filter(title__startswith='Third').count(), 1)
+        self.assertEqual(self.result.filter(title__istartswith='third').count(), 1)
+
+    def test_endswith(self):
+        self.assertEqual(self.result.filter(title__endswith='- second').count(), 1)
+        self.assertEqual(self.result.filter(title__iendswith='- Second').count(), 1)
+
+    def test_contains(self):
+        self.assertEqual(self.result.filter(title__contains='for').count(), 1)
+        self.assertEqual(self.result.filter(title__icontains='For').count(), 1)
+
+    def test_regex(self):
+        self.assertEqual(self.result.filter(title__regex=r'^Test[ \w]+$').count(), 1)
+        self.assertEqual(self.result.filter(title__iregex=r'^test[ \w]+$').count(), 1)
