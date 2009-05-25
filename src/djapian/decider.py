@@ -1,4 +1,6 @@
 import operator
+import re
+
 import xapian
 
 from django.db import models
@@ -7,16 +9,36 @@ from django.utils.functional import curry
 class X(models.Q):
     pass
 
+i = lambda f: lambda a, b: f(a.lower(), b.lower())
+
+startswith = lambda a, b: a.startswith(b)
+endswith = lambda a, b: a.endswith(b)
+regex = lambda a, b: re.match(b, a) is not None
+iregex = lambda a, b: re.match(b, a, re.I) is not None
+
 class CompositeDecider(xapian.MatchDecider):
     # operators map
-    # lookup type: (operator, reverse operands)
     op_map = {
-        'exact': (operator.eq, False),
-        'in': (operator.contains, True),
-        'gt': (operator.gt, False),
-        'gte': (operator.ge, False),
-        'lt': (operator.lt, False),
-        'lte': (operator.le, False),
+        'exact': operator.eq,
+        'iexact': i(operator.eq),
+
+        'startswith': startswith,
+        'istartswith': i(startswith),
+
+        'endswith': endswith,
+        'iendswith': i(endswith),
+
+        'contains': operator.contains,
+        'icontains': i(operator.contains),
+
+        'regex': regex,
+        'iregex': iregex,
+
+        'in': lambda a, b: operator.contains(b, a),
+        'gt': operator.gt,
+        'gte': operator.ge,
+        'lt': operator.lt,
+        'lte': operator.le,
     }
 
     def __init__(self, model, tags, filter, exclude):
@@ -68,7 +90,7 @@ class CompositeDecider(xapian.MatchDecider):
         if op not in self.op_map:
             raise ValueError("Unknown lookup operator '%s'" % op)
 
-        op, reverse = self.op_map[op]
+        op = self.op_map[op]
 
         doc_value = document.get_value(self._values_map[field])
 
@@ -86,8 +108,5 @@ class CompositeDecider(xapian.MatchDecider):
             doc_value,
             value,
         ]
-
-        if reverse:
-            operands.reverse()
 
         return reduce(op, operands)

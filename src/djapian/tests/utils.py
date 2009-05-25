@@ -92,7 +92,7 @@ class BaseIndexerTest(object):
             ),
             Entry.objects.create(
                 author=self.person,
-                title="Another test entry",
+                title="Another test entry - second",
                 rating=3.6,
                 text="Another not useful text message for tests",
                 asset_count=5,
