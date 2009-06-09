@@ -50,10 +50,10 @@ class Change(models.Model):
     objects = ChangeManager()
 
     def __unicode__(self):
-        return u'%s#%d To action:`%s`, added on %s' % (
+        return u'%s %s#%s on %s' % (
+            self.action,
             self.content_type,
             self.object_id,
-            self.action,
             self.date
         )
 
