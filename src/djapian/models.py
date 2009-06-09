@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
+from django.utils.encoding import smart_str
 
 from datetime import datetime
 
@@ -9,11 +10,12 @@ from djapian import utils
 class ChangeManager(models.Manager):
     def create(self, object, action, **kwargs):
         ct = ContentType.objects.get_for_model(object.__class__)
+        pk = smart_str(object.pk)
 
         try:
             old_change = self.get(
                 content_type=ct,
-                object_id=object.pk
+                object_id=pk
             )
             if old_change.action=="add":
                 if action=="edit":
@@ -24,7 +26,7 @@ class ChangeManager(models.Manager):
                     return None
             old_change.delete()
         except self.model.DoesNotExist:
-            old_change = self.model(object=object)
+            old_change = self.model(content_type=ct, object_id=pk)
 
         old_change.action = action
         old_change.save()
