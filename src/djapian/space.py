@@ -67,8 +67,8 @@ class IndexSpace(object):
         tags = []
         fields = []
 
-        for field in model._meta.field:
-            if isinstance(field, models.TestField):
+        for field in model._meta.fields:
+            if isinstance(field, models.TextField):
                 fields.append(field.attname)
             else:
                 tags.append((field.name, field.attname))
