@@ -109,7 +109,11 @@ class Interpreter(cmd.Cmd):
         Print index status information
         """
         import operator
-        print "Number of indexes: %s" % reduce(operator.add, [len(indexes) for model, indexes in self._list])
+        print "Number of spaces: %s" % len(IndexSpace.instances)
+        print "Number of indexes: %s" % reduce(
+            operator.add,
+            [len(space.get_indexers()) for space in IndexSpace.instances]
+        )
 
     @with_index
     def do_docslist(self, slice=""):
