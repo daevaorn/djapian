@@ -3,7 +3,7 @@ import operator
 from copy import deepcopy
 
 from django.db.models import get_model
-from django.utils.encoding import smart_unicode
+from django.utils.encoding import force_unicode
 
 from djapian import utils, decider
 
@@ -240,7 +240,7 @@ class ResultSet(object):
                 ))[k]
 
     def __unicode__(self):
-        return u"<ResultSet: query=%s>" % smart_unicode(self._query_str)
+        return u"<ResultSet: query=%s>" % force_unicode(self._query_str)
 
 class Hit(object):
     def __init__(self, pk, model, percent, rank, weight, tags):
