@@ -3,6 +3,7 @@ import operator
 from copy import deepcopy
 
 from django.db.models import get_model
+from django.utils.encoding import smart_unicode
 
 from djapian import utils, decider
 
@@ -238,8 +239,8 @@ class ResultSet(object):
                     limit=1
                 ))[k]
 
-        def __unicode__(self):
-            return "<ResultSet: query=%s prefetch=%s>" % (self.query_str, self._prefetch)
+    def __unicode__(self):
+        return u"<ResultSet: query=%s>" % smart_unicode(self._query_str)
 
 class Hit(object):
     def __init__(self, pk, model, percent, rank, weight, tags):
