@@ -78,6 +78,7 @@ djapian.add_index(Comment, CommentIndexer, attach_as='indexer')
 class BaseTestCase(TestCase):
     def tearDown(self):
         Entry.indexer.clear()
+        Comment.indexer.clear()
 
 class BaseIndexerTest(object):
     def setUp(self):
