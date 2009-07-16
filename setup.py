@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name="Djapian",
-    version="2.2.3",
+    version="2.2.4",
 
     license="New BSD License",
 
