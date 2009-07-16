@@ -1,9 +1,7 @@
-from django.test import TestCase
-
-from djapian.tests.utils import BaseIndexerTest, Entry
+from djapian.tests.utils import BaseIndexerTest, BaseTestCase, Entry
 
 def query_test(query, count):
-    class _QueryTest(BaseIndexerTest, TestCase):
+    class _QueryTest(BaseIndexerTest, BaseTestCase):
         def setUp(self):
             super(_QueryTest, self).setUp()
             self.result = Entry.indexer.search(query)
