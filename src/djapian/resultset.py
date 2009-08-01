@@ -7,15 +7,6 @@ from django.utils.encoding import force_unicode
 
 from djapian import utils, decider
 
-class defaultdict(dict):
-    def __init__(self, value_type):
-        self._value_type= value_type
-
-    def __getitem__(self, key):
-        if key not in self:
-            dict.__setitem__(self, key, list())
-        return dict.__getitem__(self, key)
-
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
@@ -141,10 +132,10 @@ class ResultSet(object):
         return self._mset.size()
 
     def _do_prefetch(self):
-        model_map = defaultdict(list)
+        model_map = {}
 
         for hit in self._resultset_cache:
-            model_map[hit.model].append(hit)
+            model_map.setdefault(hit.model, []).append(hit)
 
         for model, hits in model_map.iteritems():
             pks = [hit.pk for hit in hits]
