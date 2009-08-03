@@ -17,8 +17,9 @@ class Person(models.Model):
         app_label = "djapian"
 
 class Entry(models.Model):
+    title = models.CharField(max_length=250, primary_key=True)
+
     author = models.ForeignKey(Person, related_name="entries")
-    title = models.CharField(max_length=250)
     tags = models.CharField(max_length=250, null=True)
     created_on = models.DateTimeField(default=datetime.now)
     rating = models.FloatField(default=0)

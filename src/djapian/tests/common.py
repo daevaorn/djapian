@@ -50,7 +50,7 @@ class ChangeTrackingUpdateTest(BaseTestCase):
         p = Person.objects.create(name="Alex")
         entry = Entry.objects.create(author=p, title="Test entry")
 
-        entry.title = "Foobar title"
+        entry.text = "Foobar text"
         entry.save()
 
     def test_change_count(self):
