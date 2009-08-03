@@ -5,7 +5,6 @@ from django.db import models
 from django.test import TestCase
 
 import djapian
-from djapian import Indexer, Field
 
 class Person(models.Model):
     name = models.CharField(max_length=150)
@@ -49,7 +48,7 @@ class Comment(models.Model):
     class Meta:
         app_label = "djapian"
 
-class EntryIndexer(Indexer):
+class EntryIndexer(djapian.Indexer):
     fields = ["text"]
     tags = [
         ("author", "author.name"),
@@ -67,7 +66,7 @@ class EntryIndexer(Indexer):
     }
     trigger = lambda indexer, obj: obj.is_active
 
-class CommentIndexer(Indexer):
+class CommentIndexer(djapian.Indexer):
     fields = ['text']
     tags = [
         ('author', 'author.name')
