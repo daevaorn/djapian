@@ -5,7 +5,7 @@ from django.db import models
 from django.utils.itercompat import is_iterable
 from djapian.signals import post_save, pre_delete
 from django.conf import settings
-from django.utils.encoding import smart_unicode
+from django.utils.encoding import smart_unicode, force_unicode
 
 from djapian.resultset import ResultSet
 from djapian import utils, decider
@@ -79,9 +79,9 @@ class Field(object):
         if isinstance(value, self.raw_types):
             return value
         elif is_iterable(value):
-            return ", ".join(value)
+            return ", ".join(map(force_unciode, value))
         elif isinstance(value, models.Manager):
-            return ", ".join(value.all())
+            return ", ".join(map(force_unicode, value.all()))
         return None
 
     def extract(self, document):
