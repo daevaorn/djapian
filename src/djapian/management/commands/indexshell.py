@@ -61,9 +61,10 @@ class Interpreter(cmd.Cmd):
         """
         space, model, indexer = self._get_indexer(index)
 
-        self._current_index = indexer
+        if indexer is not None:
+            self._current_index = indexer
 
-        print "Using `%s:%s:%s` index." % (space, utils.model_name(model), indexer)
+            print "Using `%s:%s:%s` index." % (space, utils.model_name(model), indexer)
 
     def do_usecomposite(self, indexes):
         """
@@ -153,11 +154,15 @@ class Interpreter(cmd.Cmd):
         print "Document #%s deleted." % id
 
     def _get_indexer(self, index):
-        space, model, indexer = self._parse_slice(index, '.')
+        try:
+            space, model, indexer = self._parse_slice(index, '.')
 
-        space = IndexSpace.instances[space]
-        model = space.get_indexers().keys()[model]
-        indexer = space.get_indexers()[model][indexer]
+            space = IndexSpace.instances[space]
+            model = space.get_indexers().keys()[model]
+            indexer = space.get_indexers()[model][indexer]
+        except (IndexError, KeyError, ValueError):
+            print 'Illegal index alias `%s`. See `list` command for available aliases' % index
+            return None, None, None
 
         return space, model, indexer
 
