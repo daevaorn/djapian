@@ -162,7 +162,7 @@ class Interpreter(cmd.Cmd):
             space = IndexSpace.instances[space]
             model = space.get_indexers().keys()[model]
             indexer = space.get_indexers()[model][indexer]
-        except (IndexError, KeyError, ValueError):
+        except (TypeError, IndexError, KeyError, ValueError):
             print 'Illegal index alias `%s`. See `list` command for available aliases' % index
             return None, None, None
 
