@@ -14,8 +14,11 @@ class IndexerTest(BaseTestCase):
 
 class FieldResolverTest(BaseTestCase):
     def setUp(self):
-        p = Person.objects.create(name="Alex")
-        self.entry = Entry.objects.create(author=p, title="Test entry")
+        person = Person.objects.create(name="Alex", age=22)
+        another_person = Person.objects.create(name="Sam", age=25)
+
+        self.entry = Entry.objects.create(author=person, title="Test entry")
+        self.entry.editors.add(person, another_person)
 
     def test_simple_attribute(self):
         self.assertEqual(Field("title").resolve(self.entry), "Test entry")
@@ -25,6 +28,12 @@ class FieldResolverTest(BaseTestCase):
 
     def test_fk_attribute(self):
         self.assertEqual(force_unicode(Field("author").resolve(self.entry)), "Alex")
+
+    def test_m2m_attribute(self):
+        self.assertEqual(force_unicode(Field("editors").resolve(self.entry)), "Alex, Sam")
+
+    def test_m2m_field_attribute(self):
+        self.assertEqual(force_unicode(Field("editors.age").resolve(self.entry)), "22, 25")
 
     def test_method(self):
         self.assertEqual(

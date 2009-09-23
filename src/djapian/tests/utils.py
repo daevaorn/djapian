@@ -8,6 +8,7 @@ import djapian
 
 class Person(models.Model):
     name = models.CharField(max_length=150)
+    age = models.PositiveIntegerField(default=0)
 
     def __unicode__(self):
         return self.name
