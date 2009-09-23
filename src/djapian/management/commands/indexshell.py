@@ -21,7 +21,7 @@ def split_arg(func):
     def _decorator(cmd, arg):
         bits = list(smart_split(arg))
 
-        return func(cmd, bits)
+        return func(cmd, *bits)
     _decorator.__doc__ = func.__doc__
     return _decorator
 
@@ -85,11 +85,13 @@ class Interpreter(cmd.Cmd):
         print "indexes."
 
     @with_index
-    def do_query(self, query):
+    @split_arg
+    def do_query(self, query, _slice=''):
         """
         Returns objects fetched by given query
         """
-        print list(self._current_index.search(query))
+        _slice = slice(*self._parse_slice(_slice))
+        print list(self._current_index.search(query)[_slice])
 
     @with_index
     def do_count(self, query):
@@ -166,9 +168,15 @@ class Interpreter(cmd.Cmd):
 
         return space, model, indexer
 
-    def _parse_slice(self, slice="", delimeter=":", default=tuple()):
+    def _parse_slice(self, slice='', delimeter=':', default=tuple()):
         if slice:
-            bits = map(int, slice.split(delimeter))
+            def _select(b, d):
+                try:
+                    return int(b)
+                except ValueError:
+                    return d
+
+            bits = [_select(b, d) for b, d in zip(slice.split(delimeter), default or ([None] * 3))]
         elif default:
             return default
         else:
