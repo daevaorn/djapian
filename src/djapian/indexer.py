@@ -61,28 +61,33 @@ class Field(object):
 
         return value
 
+    def resolve_one(self, value, name):
+        value = getattr(value, name)
+
+        if isinstance(value, models.Manager):
+            value = value.all()
+        elif callable(value):
+            value = value()
+
+        return value
+
     def resolve(self, value):
         bits = self.path.split(".")
 
         for bit in bits:
-            try:
-                value = getattr(value, bit)
-            except AttributeError:
-                raise
-
-            if callable(value):
-                try:
-                    value = value()
-                except TypeError:
-                    raise
+            if is_iterable(value):
+                value = u', '.join(
+                    map(lambda v: force_unicode(self.resolve_one(v, bit)), value)
+                )
+            else:
+                value = self.resolve_one(value, bit)
 
         if isinstance(value, self.raw_types):
             return value
-        elif is_iterable(value):
-            return ", ".join(map(force_unciode, value))
-        elif isinstance(value, models.Manager):
-            return ", ".join(map(force_unicode, value.all()))
-        return None
+        if is_iterable(value):
+            return u', '.join(map(force_unicode, value))
+
+        return value and force_unicode(value) or None
 
     def extract(self, document):
         if self.number:
