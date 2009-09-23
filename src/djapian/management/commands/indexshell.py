@@ -30,6 +30,7 @@ class Interpreter(cmd.Cmd):
 
     def __init__(self, *args):
         self._current_index = None
+        self._current_index_path = [None, None, None]
 
         if len(args):
             self.do_use(args[0])
@@ -41,13 +42,22 @@ class Interpreter(cmd.Cmd):
         Lists all available indexes with their ids
         """
         print "Installed spaces/models/indexers:"
+
+        def _is_selected(space, model=None, index=None):
+            selected = [b for b in (space, model, index) if b is not None]
+            return len(
+                [1 for c, s in zip(self._current_index_path, selected) if c == s]
+            ) == len(selected)
+
         for space_i, space in enumerate(IndexSpace.instances):
-            print "%s: `%s`" % (space_i, space)
+            print (_is_selected(space_i) and '* ' or '- ') + '%s: `%s`' % (space_i, space)
             for model_indexer_i, pair in enumerate(space.get_indexers().items()):
                 model, indexers = pair
-                print "  %s.%s: `%s`" % (space_i, model_indexer_i, utils.model_name(model))
+                print (_is_selected(space_i, model_indexer_i) and '  * ' or '  - ') +\
+                        "%s.%s: `%s`" % (space_i, model_indexer_i, utils.model_name(model))
                 for indexer_i, indexer in enumerate(indexers):
-                    print "    %s.%s.%s: `%s`" % (space_i, model_indexer_i, indexer_i, indexer)
+                    print (_is_selected(space_i, model_indexer_i, indexer_i) and '    * ' or '    - ') +\
+                        "%s.%s.%s: `%s`" % (space_i, model_indexer_i, indexer_i, indexer)
 
     def do_exit(self, arg):
         """
@@ -59,10 +69,11 @@ class Interpreter(cmd.Cmd):
         """
         Changes current index
         """
-        space, model, indexer = self._get_indexer(index)
+        space, model, indexer, path = self._get_indexer(index)
 
         if indexer is not None:
             self._current_index = indexer
+            self._current_index_path = path
 
             print "Using `%s:%s:%s` index." % (space, utils.model_name(model), indexer)
 
@@ -157,16 +168,16 @@ class Interpreter(cmd.Cmd):
 
     def _get_indexer(self, index):
         try:
-            space, model, indexer = self._parse_slice(index, '.')
+            _space, _model, _indexer = self._parse_slice(index, '.')
 
-            space = IndexSpace.instances[space]
-            model = space.get_indexers().keys()[model]
-            indexer = space.get_indexers()[model][indexer]
+            space = IndexSpace.instances[_space]
+            model = space.get_indexers().keys()[_model]
+            indexer = space.get_indexers()[model][_indexer]
         except (TypeError, IndexError, KeyError, ValueError):
             print 'Illegal index alias `%s`. See `list` command for available aliases' % index
-            return None, None, None
+            return None, None, None, None
 
-        return space, model, indexer
+        return space, model, indexer, [_space, _model, _indexer]
 
     def _parse_slice(self, slice='', delimeter=':', default=tuple()):
         if slice:
