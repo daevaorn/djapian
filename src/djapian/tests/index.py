@@ -29,7 +29,7 @@ class IndexCommandTest(BaseTestCase):
 
         from django.core.management import call_command
 
-        call_command("index", no_fork=True, once=True)
+        call_command("index", daemonize=False)
 
     def test_database(self):
         self.assertEqual(Entry.indexer.document_count(), 1)
