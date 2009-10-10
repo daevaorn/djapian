@@ -71,3 +71,17 @@ class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
         results = self.indexer.search('entry')
 
         self.assertEqual(len(results), 4) # 3 entries + 1 comment
+
+class OrderingTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(OrderingTest, self).setUp()
+        self.result = Entry.indexer.search("text")
+
+    def test_order_by(self):
+        entries = [e  for e in self.entries if e.is_active]
+        entries.sort(key=lambda e: e.rating)
+
+        self.assertEqual(
+            list([r.instance for r in self.result.order_by('-rating').prefetch()]),
+            entries
+        )
