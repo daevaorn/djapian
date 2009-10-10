@@ -31,6 +31,9 @@ class Field(object):
         """
         Generates index values (for sorting) for given field value and its content type
         """
+        if field_value is None:
+            return None
+
         # If it is a model field make some postprocessing of its value
         try:
             content_type = model._meta.get_field(self.path.split('.', 1)[0])
