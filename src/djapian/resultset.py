@@ -50,8 +50,8 @@ class ResultSet(object):
             prefetch_select_related=select_related
         )
 
-    def order_by(self, field):
-        return self._clone(order_by=field)
+    def order_by(self, field, relevance_first=False):
+        return self._clone(order_by=(field, relevance_first))
 
     def flags(self, flags):
         return self._clone(flags=flags)

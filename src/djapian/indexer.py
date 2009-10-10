@@ -5,7 +5,7 @@ from django.db import models
 from django.utils.itercompat import is_iterable
 from djapian.signals import post_save, pre_delete
 from django.conf import settings
-from django.utils.encoding import smart_unicode, force_unicode
+from django.utils.encoding import smart_str
 
 from djapian.resultset import ResultSet
 from djapian import utils, decider
@@ -39,9 +39,8 @@ class Field(object):
 
         value = field_value
 
-        if isinstance(content_type, (models.IntegerField, int, long)):
-            # Integer fields are stored with 12 leading zeros
-            value = '%012d' % field_value
+        if isinstance(content_type, (models.IntegerField, models.FloatField, int, long, float,)):
+            value = xapian.sortable_serialise(field_value)
         elif isinstance(content_type, (models.BooleanField, bool)):
             # Boolean fields are stored as 't' or 'f'
             if field_value:
@@ -51,8 +50,6 @@ class Field(object):
         elif isinstance(content_type, (models.DateTimeField, datetime.datetime)):
             # DateTime fields are stored as %Y%m%d%H%M%S (better sorting)
             value = field_value.strftime('%Y%m%d%H%M%S')
-        elif isinstance(content_type, (float, models.FloatField)):
-            value = '%.10f' % value
 
         return value
 
@@ -72,7 +69,7 @@ class Field(object):
         for bit in bits:
             if is_iterable(value):
                 value = u', '.join(
-                    map(lambda v: force_unicode(self.resolve_one(v, bit)), value)
+                    map(lambda v: smart_str(self.resolve_one(v, bit)), value)
                 )
             else:
                 value = self.resolve_one(value, bit)
@@ -80,9 +77,9 @@ class Field(object):
         if isinstance(value, self.raw_types):
             return value
         if is_iterable(value):
-            return u', '.join(map(force_unicode, value))
+            return u', '.join(map(smart_str, value))
 
-        return value and force_unicode(value) or None
+        return value and smart_str(value) or None
 
     def extract(self, document):
         if self.number:
@@ -231,12 +228,12 @@ class Indexer(object):
                             if field.prefix:
                                 index_value = field.convert(value, self._model)
                                 if index_value is not None:
-                                    doc.add_value(field.number, smart_unicode(index_value))
+                                    doc.add_value(field.number, smart_str(index_value))
 
-                            prefix = smart_unicode(field.get_tag())
-                            generator.index_text(smart_unicode(value), field.weight, prefix)
+                            prefix = smart_str(field.get_tag())
+                            generator.index_text(smart_str(value), field.weight, prefix)
                             if prefix:  # if prefixed then also index without prefix
-                                generator.index_text(smart_unicode(value), field.weight)
+                                generator.index_text(smart_str(value), field.weight)
 
                         database.replace_document(uid, doc)
                         if after_index:
@@ -296,7 +293,7 @@ class Indexer(object):
 
     def _insert_meta_values(self, doc, obj, start=1):
         for value in self._get_meta_values(obj):
-            doc.add_value(start, smart_unicode(value))
+            doc.add_value(start, smart_str(value))
             start += 1
         return start
 
@@ -304,7 +301,7 @@ class Indexer(object):
         """
         Generates document UID for given object
         """
-        return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
+        return "UID-" + "-".join(map(smart_str, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
                     filter, exclude):
@@ -316,10 +313,11 @@ class Indexer(object):
         database = self._db.open()
         enquire = xapian.Enquire(database)
 
-        if order_by in (None, 'RELEVANCE'):
+        if order_by is None or order_by[0] in (None, 'RELEVANCE'):
             enquire.set_sort_by_relevance()
         else:
             ascending = True
+            order_by, relevance_first = order_by
             if order_by.startswith('-'):
                 ascending = False
 
@@ -332,7 +330,10 @@ class Indexer(object):
                 raise ValueError("Field %s cannot be used in order_by clause"
                                  " because it doen't exist in index" % order_by)
 
-            enquire.set_sort_by_relevance_then_value(valueno, ascending)
+            if relevance_first:
+                enquire.set_sort_by_relevance_then_value(valueno, ascending)
+            else:
+                enquire.set_sort_by_value_then_relevance(valueno, ascending)
 
         query, query_parser = self._parse_query(query, database, flags, stemming_lang)
         enquire.set_query(
