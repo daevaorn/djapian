@@ -18,16 +18,17 @@ class Field(object):
     raw_types = (int, long, float, basestring, bool, models.Model,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix="", number=None):
+    def __init__(self, path, model, weight=utils.DEFAULT_WEIGHT, prefix='', number=None):
         self.path = path
         self.weight = weight
         self.prefix = prefix
         self.number = number
+        self.model = model
 
     def get_tag(self):
         return self.prefix.upper()
 
-    def convert(self, field_value, model):
+    def convert(self, field_value):
         """
         Generates index values (for sorting) for given field value and its content type
         """
@@ -36,7 +37,7 @@ class Field(object):
 
         # If it is a model field make some postprocessing of its value
         try:
-            content_type = model._meta.get_field(self.path.split('.', 1)[0])
+            content_type = self.model._meta.get_field(self.path.split('.', 1)[0])
         except models.FieldDoesNotExist:
             content_type = field_value
 
@@ -114,9 +115,9 @@ class Indexer(object):
         # For each field checks if it is a tuple or a list and add it's weight
         for field in self.__class__.fields:
             if isinstance(field, (tuple, list)):
-                self.fields.append(self.field_class(field[0], field[1]))
+                self.fields.append(self.field_class(field[0], self._model, field[1]))
             else:
-                self.fields.append(self.field_class(field))
+                self.fields.append(self.field_class(field, self._model))
 
         # Parse prefixed fields
         valueno = self.free_values_start_number
@@ -128,7 +129,7 @@ class Indexer(object):
             else:
                 weight = utils.DEFAULT_WEIGHT
 
-            self.tags.append(self.field_class(path, weight, prefix=tag, number=valueno))
+            self.tags.append(self.field_class(path, self._model, weight, prefix=tag, number=valueno))
             valueno += 1
 
         for tag, aliases in self.__class__.aliases.iteritems():
@@ -229,7 +230,7 @@ class Indexer(object):
                                 continue
 
                             if field.prefix:
-                                index_value = field.convert(value, self._model)
+                                index_value = field.convert(value)
                                 if index_value is not None:
                                     doc.add_value(field.number, smart_str(index_value))
 
@@ -361,7 +362,7 @@ class Indexer(object):
         if language == "multi":
             if obj:
                 try:
-                    language = self.field_class(self.stemming_lang_accessor).resolve(obj)
+                    language = self.field_class(self.stemming_lang_accessor, self._model).resolve(obj)
                 except AttributeError:
                     pass
             else:

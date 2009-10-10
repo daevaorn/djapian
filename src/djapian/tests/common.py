@@ -21,23 +21,23 @@ class FieldResolverTest(BaseTestCase):
         self.entry.editors.add(person, another_person)
 
     def test_simple_attribute(self):
-        self.assertEqual(Field("title").resolve(self.entry), "Test entry")
+        self.assertEqual(Field("title", Entry).resolve(self.entry), "Test entry")
 
     def test_related_attribute(self):
-        self.assertEqual(Field("author.name").resolve(self.entry), "Alex")
+        self.assertEqual(Field("author.name", Entry).resolve(self.entry), "Alex")
 
     def test_fk_attribute(self):
-        self.assertEqual(force_unicode(Field("author").resolve(self.entry)), "Alex")
+        self.assertEqual(force_unicode(Field("author", Entry).resolve(self.entry)), "Alex")
 
     def test_m2m_attribute(self):
-        self.assertEqual(force_unicode(Field("editors").resolve(self.entry)), "Alex, Sam")
+        self.assertEqual(force_unicode(Field("editors", Entry).resolve(self.entry)), "Alex, Sam")
 
     def test_m2m_field_attribute(self):
-        self.assertEqual(force_unicode(Field("editors.age").resolve(self.entry)), "22, 25")
+        self.assertEqual(force_unicode(Field("editors.age", Entry).resolve(self.entry)), "22, 25")
 
     def test_method(self):
         self.assertEqual(
-            Field("headline").resolve(self.entry),
+            Field("headline", Entry).resolve(self.entry),
             "Alex - Test entry"
         )
 
