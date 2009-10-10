@@ -35,22 +35,15 @@ class Field(object):
         if field_value is None:
             return None
 
-        # If it is a model field make some postprocessing of its value
-        try:
-            content_type = self.model._meta.get_field(self.path.split('.', 1)[0])
-        except models.FieldDoesNotExist:
-            content_type = field_value
+        content_type = self._get_content_type(field_value)
 
         value = field_value
 
-        if isinstance(content_type, (models.IntegerField, models.FloatField, int, long, float,)):
+        if self._is_float_or_interger(content_type):
             value = xapian.sortable_serialise(field_value)
         elif isinstance(content_type, (models.BooleanField, bool)):
             # Boolean fields are stored as 't' or 'f'
-            if field_value:
-                value = 't'
-            else:
-                value = 'f'
+            value = field_value and 't' or 'f'
         elif isinstance(content_type, (models.DateTimeField, datetime.datetime)):
             # DateTime fields are stored as %Y%m%d%H%M%S (better sorting)
             value = field_value.strftime('%Y%m%d%H%M%S')
@@ -87,9 +80,26 @@ class Field(object):
 
     def extract(self, document):
         if self.number:
-            return document.get_value(self.number)
+            value = document.get_value(self.number)
+
+            content_type = self._get_content_type(value)
+
+            if self._is_float_or_interger(content_type):
+                value = xapian.sortable_unserialise(value)
+
+            return value
 
         return None
+
+    def _get_content_type(self, field_value):
+        """Returns field's models.Field instance or value if such model field does not exist"""
+        try:
+            return self.model._meta.get_field(self.path.split('.', 1)[0])
+        except models.FieldDoesNotExist:
+            return field_value
+
+    def _is_float_or_interger(self, content_type):
+        return isinstance(content_type, (models.IntegerField, models.FloatField, int, long, float,))
 
 class Indexer(object):
     field_class = Field
