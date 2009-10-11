@@ -155,7 +155,9 @@ class Indexer(object):
 
     def __unicode__(self):
         return self.__class__.get_descriptor()
-    __str__ = __unicode__
+
+    def __str__(self):
+        return smart_str(self.__unicode__())
 
     def has_tag(self, name):
         return self.tag_index(name) is not None
@@ -288,6 +290,7 @@ class Indexer(object):
         self._db.clear()
 
     # Private Indexer interface
+
     def _prepare(self, db, model=None):
         """Initialize attributes"""
         self._db = db
