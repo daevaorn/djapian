@@ -76,6 +76,9 @@ class ResultSet(object):
         clone._add_exclude_fields(fields, raw_fields)
         return clone
 
+    def best_match(self):
+        return self._clone()[0]
+
     # Private methods
 
     def _prepare_fields(self, fields=None, raw_fields=None):

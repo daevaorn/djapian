@@ -31,6 +31,9 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
 
         self.assertEqual(hit.tags['title'], 'Test entry')
 
+    def test_best_match(self):
+        self.assertEqual(self.result.best_match().instance.title, 'Test entry')
+
     def test_prefetch(self):
         result = self.result.prefetch()
 
