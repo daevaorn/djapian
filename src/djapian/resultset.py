@@ -8,7 +8,7 @@ from django.utils.encoding import force_unicode
 from djapian import utils, decider
 
 class ResultSet(object):
-    def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
+    def __init__(self, indexer, query_str, offset=0, limit=None,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
                  filter=None, exclude=None, prefetch_select_related=False):
         self._indexer = indexer
@@ -221,17 +221,13 @@ class ResultSet(object):
                 if start is None:
                     start = 0
                 if stop is None:
-                    kstop = utils.DEFAULT_MAX_RESULTS
+                    limit = None
+                else:
+                    limit = stop - start
 
-                return self._clone(
-                    offset=start,
-                    limit=stop - start
-                )
+                return self._clone(offset=start, limit=limit)
             else:
-                return list(self._clone(
-                    offset=k,
-                    limit=1
-                ))[k]
+                return list(self._clone(offset=k, limit=1))[k]
 
     def __unicode__(self):
         return u"<ResultSet: query=%s>" % force_unicode(self._query_str)
