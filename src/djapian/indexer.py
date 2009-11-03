@@ -359,6 +359,9 @@ class Indexer(object):
 
         decider = self.decider(self._model, self.tags, filter, exclude)
 
+        if limit is None:
+            limit = self.document_count()
+
         return enquire.get_mset(
             offset,
             limit,

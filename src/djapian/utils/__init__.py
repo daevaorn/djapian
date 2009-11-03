@@ -1,6 +1,5 @@
 from django.conf import settings
 
-DEFAULT_MAX_RESULTS = 100000
 DEFAULT_WEIGHT = 1
 
 def model_name(model):
