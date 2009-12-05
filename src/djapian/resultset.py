@@ -8,7 +8,7 @@ from django.utils.encoding import force_unicode
 from djapian import utils, decider
 
 class ResultSet(object):
-    def __init__(self, indexer, query_str, offset=0, limit=None,
+    def __init__(self, indexer, query_str, offset=0, limit=utils.DEFAULT_MAX_RESULTS,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
                  filter=None, exclude=None, prefetch_select_related=False):
         self._indexer = indexer
@@ -50,8 +50,8 @@ class ResultSet(object):
             prefetch_select_related=select_related
         )
 
-    def order_by(self, field, relevance_first=False):
-        return self._clone(order_by=(field, relevance_first))
+    def order_by(self, field):
+        return self._clone(order_by=field)
 
     def flags(self, flags):
         return self._clone(flags=flags)
@@ -75,9 +75,6 @@ class ResultSet(object):
         clone = self._clone()
         clone._add_exclude_fields(fields, raw_fields)
         return clone
-
-    def best_match(self):
-        return self._clone()[0]
 
     # Private methods
 
@@ -221,13 +218,17 @@ class ResultSet(object):
                 if start is None:
                     start = 0
                 if stop is None:
-                    limit = None
-                else:
-                    limit = stop - start
+                    kstop = utils.DEFAULT_MAX_RESULTS
 
-                return self._clone(offset=start, limit=limit)
+                return self._clone(
+                    offset=start,
+                    limit=stop - start
+                )
             else:
-                return list(self._clone(offset=k, limit=1))[k]
+                return list(self._clone(
+                    offset=k,
+                    limit=1
+                ))[k]
 
     def __unicode__(self):
         return u"<ResultSet: query=%s>" % force_unicode(self._query_str)

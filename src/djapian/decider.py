@@ -94,7 +94,10 @@ class CompositeDecider(xapian.MatchDecider):
 
         doc_value = document.get_value(self._values_map[field])
 
-        convert = self.get_tag(self._values_map[field]).convert
+        convert = curry(
+            self.get_tag(self._values_map[field]).convert,
+            model=self._model
+        )
 
         if isinstance(value, (list, tuple)):
             value = map(convert, value)

@@ -5,7 +5,7 @@ from django.db import models
 from django.utils.itercompat import is_iterable
 from djapian.signals import post_save, pre_delete
 from django.conf import settings
-from django.utils.encoding import smart_str
+from django.utils.encoding import smart_unicode, force_unicode
 
 from djapian.resultset import ResultSet
 from djapian import utils, decider
@@ -18,35 +18,41 @@ class Field(object):
     raw_types = (int, long, float, basestring, bool, models.Model,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, model, weight=utils.DEFAULT_WEIGHT, prefix='', number=None):
+    def __init__(self, path, weight=utils.DEFAULT_WEIGHT, prefix="", number=None):
         self.path = path
         self.weight = weight
         self.prefix = prefix
         self.number = number
-        self.model = model
 
     def get_tag(self):
         return self.prefix.upper()
 
-    def convert(self, field_value):
+    def convert(self, field_value, model):
         """
         Generates index values (for sorting) for given field value and its content type
         """
-        if field_value is None:
-            return None
-
-        content_type = self._get_content_type(field_value)
+        # If it is a model field make some postprocessing of its value
+        try:
+            content_type = model._meta.get_field(self.path.split('.', 1)[0])
+        except models.FieldDoesNotExist:
+            content_type = field_value
 
         value = field_value
 
-        if self._is_float_or_interger(content_type):
-            value = xapian.sortable_serialise(field_value)
+        if isinstance(content_type, (models.IntegerField, int, long)):
+            # Integer fields are stored with 12 leading zeros
+            value = '%012d' % field_value
         elif isinstance(content_type, (models.BooleanField, bool)):
             # Boolean fields are stored as 't' or 'f'
-            value = field_value and 't' or 'f'
+            if field_value:
+                value = 't'
+            else:
+                value = 'f'
         elif isinstance(content_type, (models.DateTimeField, datetime.datetime)):
             # DateTime fields are stored as %Y%m%d%H%M%S (better sorting)
             value = field_value.strftime('%Y%m%d%H%M%S')
+        elif isinstance(content_type, (float, models.FloatField)):
+            value = '%.10f' % value
 
         return value
 
@@ -66,7 +72,7 @@ class Field(object):
         for bit in bits:
             if is_iterable(value):
                 value = u', '.join(
-                    map(lambda v: smart_str(self.resolve_one(v, bit)), value)
+                    map(lambda v: force_unicode(self.resolve_one(v, bit)), value)
                 )
             else:
                 value = self.resolve_one(value, bit)
@@ -74,32 +80,15 @@ class Field(object):
         if isinstance(value, self.raw_types):
             return value
         if is_iterable(value):
-            return u', '.join(map(smart_str, value))
+            return u', '.join(map(force_unicode, value))
 
-        return value and smart_str(value) or None
+        return value and force_unicode(value) or None
 
     def extract(self, document):
         if self.number:
-            value = document.get_value(self.number)
-
-            content_type = self._get_content_type(value)
-
-            if self._is_float_or_interger(content_type):
-                value = xapian.sortable_unserialise(value)
-
-            return value
+            return document.get_value(self.number)
 
         return None
-
-    def _get_content_type(self, field_value):
-        """Returns field's models.Field instance or value if such model field does not exist"""
-        try:
-            return self.model._meta.get_field(self.path.split('.', 1)[0])
-        except models.FieldDoesNotExist:
-            return field_value
-
-    def _is_float_or_interger(self, content_type):
-        return isinstance(content_type, (models.IntegerField, models.FloatField, int, long, float,))
 
 class Indexer(object):
     field_class = Field
@@ -125,9 +114,9 @@ class Indexer(object):
         # For each field checks if it is a tuple or a list and add it's weight
         for field in self.__class__.fields:
             if isinstance(field, (tuple, list)):
-                self.fields.append(self.field_class(field[0], self._model, field[1]))
+                self.fields.append(self.field_class(field[0], field[1]))
             else:
-                self.fields.append(self.field_class(field, self._model))
+                self.fields.append(self.field_class(field))
 
         # Parse prefixed fields
         valueno = self.free_values_start_number
@@ -139,7 +128,7 @@ class Indexer(object):
             else:
                 weight = utils.DEFAULT_WEIGHT
 
-            self.tags.append(self.field_class(path, self._model, weight, prefix=tag, number=valueno))
+            self.tags.append(self.field_class(path, weight, prefix=tag, number=valueno))
             valueno += 1
 
         for tag, aliases in self.__class__.aliases.iteritems():
@@ -155,9 +144,7 @@ class Indexer(object):
 
     def __unicode__(self):
         return self.__class__.get_descriptor()
-
-    def __str__(self):
-        return smart_str(self.__unicode__())
+    __str__ = __unicode__
 
     def has_tag(self, name):
         return self.tag_index(name) is not None
@@ -242,14 +229,14 @@ class Indexer(object):
                                 continue
 
                             if field.prefix:
-                                index_value = field.convert(value)
+                                index_value = field.convert(value, self._model)
                                 if index_value is not None:
-                                    doc.add_value(field.number, smart_str(index_value))
+                                    doc.add_value(field.number, smart_unicode(index_value))
 
-                            prefix = smart_str(field.get_tag())
-                            generator.index_text(smart_str(value), field.weight, prefix)
+                            prefix = smart_unicode(field.get_tag())
+                            generator.index_text(smart_unicode(value), field.weight, prefix)
                             if prefix:  # if prefixed then also index without prefix
-                                generator.index_text(smart_str(value), field.weight)
+                                generator.index_text(smart_unicode(value), field.weight)
 
                         database.replace_document(uid, doc)
                         if after_index:
@@ -290,7 +277,6 @@ class Indexer(object):
         self._db.clear()
 
     # Private Indexer interface
-
     def _prepare(self, db, model=None):
         """Initialize attributes"""
         self._db = db
@@ -310,7 +296,7 @@ class Indexer(object):
 
     def _insert_meta_values(self, doc, obj, start=1):
         for value in self._get_meta_values(obj):
-            doc.add_value(start, smart_str(value))
+            doc.add_value(start, smart_unicode(value))
             start += 1
         return start
 
@@ -318,7 +304,7 @@ class Indexer(object):
         """
         Generates document UID for given object
         """
-        return "UID-" + "-".join(map(smart_str, self._get_meta_values(obj)))
+        return "UID-" + "-".join(map(smart_unicode, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
                     filter, exclude):
@@ -330,11 +316,10 @@ class Indexer(object):
         database = self._db.open()
         enquire = xapian.Enquire(database)
 
-        if order_by is None or order_by[0] in (None, 'RELEVANCE'):
+        if order_by in (None, 'RELEVANCE'):
             enquire.set_sort_by_relevance()
         else:
             ascending = True
-            order_by, relevance_first = order_by
             if order_by.startswith('-'):
                 ascending = False
 
@@ -347,10 +332,7 @@ class Indexer(object):
                 raise ValueError("Field %s cannot be used in order_by clause"
                                  " because it doen't exist in index" % order_by)
 
-            if relevance_first:
-                enquire.set_sort_by_relevance_then_value(valueno, ascending)
-            else:
-                enquire.set_sort_by_value_then_relevance(valueno, ascending)
+            enquire.set_sort_by_relevance_then_value(valueno, ascending)
 
         query, query_parser = self._parse_query(query, database, flags, stemming_lang)
         enquire.set_query(
@@ -358,9 +340,6 @@ class Indexer(object):
         )
 
         decider = self.decider(self._model, self.tags, filter, exclude)
-
-        if limit is None:
-            limit = self.document_count()
 
         return enquire.get_mset(
             offset,
@@ -378,7 +357,7 @@ class Indexer(object):
         if language == "multi":
             if obj:
                 try:
-                    language = self.field_class(self.stemming_lang_accessor, self._model).resolve(obj)
+                    language = self.field_class(self.stemming_lang_accessor).resolve(obj)
                 except AttributeError:
                     pass
             else:

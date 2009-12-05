@@ -6,7 +6,6 @@ from django.contrib.contenttypes.models import ContentType
 import os
 import sys
 import operator
-import time
 from datetime import datetime
 from optparse import make_option
 
@@ -34,7 +33,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
     counter = [0]
 
     def reset_counter():
-        counter[0] = 0
+        counter[0] = [0]
 
     def after_index(obj):
         counter[0] += 1
@@ -54,11 +53,11 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
         if count > 0 and verbose:
             print 'There are %d objects to update' % count
 
-        for ct in get_content_types('add', 'edit'):
+        for ct in get_content_types('add', 'update'):
             indexers = get_indexers(ct)
 
             for page in paginate(
-                            Change.objects.filter(content_type=ct, action__in=('add', 'edit'))\
+                            Change.objects.filter(content_type=ct, action__in=('add', 'update'))\
                                 .select_related('content_type')\
                                 .order_by('object_id'),
                             per_page
@@ -98,19 +97,6 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
                 for indexer in indexers:
                     indexer.delete(change.object_id)
                     change.delete()
-
-        # If using transactions and running Djapian as a daemon, transactions
-        # need to be committed on each iteration, otherwise Djapian will not
-        # catch changes. We also need to use the commit_manually decorator.
-        #
-        # Background information:
-        #
-        # Autocommit is turned off by default according to PEP 249.
-        # PEP 249 states "Database modules that do not support transactions
-        #                 should implement this method with void functionality".
-        # Consistent Nonlocking Reads (InnoDB):
-        # http://dev.mysql.com/doc/refman/5.0/en/innodb-consistent-read-example.html
-        transaction.commit()
 
         if once:
             break

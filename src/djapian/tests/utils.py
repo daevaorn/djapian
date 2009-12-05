@@ -22,7 +22,7 @@ class Entry(models.Model):
     author = models.ForeignKey(Person, related_name="entries")
     tags = models.CharField(max_length=250, null=True)
     created_on = models.DateTimeField(default=datetime.now)
-    rating = models.FloatField(null=True)
+    rating = models.FloatField(default=0)
 
     asset_count = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)

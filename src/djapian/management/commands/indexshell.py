@@ -101,7 +101,8 @@ class Interpreter(cmd.Cmd):
         """
         Returns objects fetched by given query
         """
-        print list(self._current_index.search(query)[self._parse_slice(_slice)])
+        _slice = slice(*self._parse_slice(_slice))
+        print list(self._current_index.search(query)[_slice])
 
     @with_index
     def do_count(self, query):
@@ -135,9 +136,9 @@ class Interpreter(cmd.Cmd):
         """
         db = self._current_index._db.open()
 
-        _slice = self._parse_slice(slice, default=(1, db.get_lastdocid()))
+        start, end = self._parse_slice(slice, default=(1, db.get_lastdocid()))
 
-        for i in range(_slice.start, _slice.stop + 1):
+        for i in range(start, end + 1):
             doc = db.get_document(i)
             print "doc #%s:\n\tValues (%s):" % (i, doc.values_count())
             val = doc.values_begin()
@@ -167,7 +168,7 @@ class Interpreter(cmd.Cmd):
 
     def _get_indexer(self, index):
         try:
-            _space, _model, _indexer = map(int, index.split('.'))
+            _space, _model, _indexer = self._parse_slice(index, '.')
 
             space = IndexSpace.instances[_space]
             model = space.get_indexers().keys()[_model]
@@ -178,14 +179,19 @@ class Interpreter(cmd.Cmd):
 
         return space, model, indexer, [_space, _model, _indexer]
 
-    def _parse_slice(self, _slice, delimeter=':', default=None):
-        bits = map(int, [b for b in _slice.split(delimeter, 2) if b]) or default
-        if not bits:
-            return slice(None)
-        elif len(bits) == 1:
-            return slice(bits[0], bits[0] + 1)
+    def _parse_slice(self, slice='', delimeter=':', default=tuple()):
+        if slice:
+            def _select(b, d):
+                try:
+                    return int(b)
+                except ValueError:
+                    return d
+
+            bits = [_select(b, d) for b, d in zip(slice.split(delimeter), default or ([None] * 3))]
+        elif default:
+            return default
         else:
-            return slice(*bits)
+            raise ValueError("Empty slice")
 
         return bits
 
