@@ -54,11 +54,11 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
         if count > 0 and verbose:
             print 'There are %d objects to update' % count
 
-        for ct in get_content_types('add', 'update'):
+        for ct in get_content_types('add', 'edit'):
             indexers = get_indexers(ct)
 
             for page in paginate(
-                            Change.objects.filter(content_type=ct, action__in=('add', 'update'))\
+                            Change.objects.filter(content_type=ct, action__in=('add', 'edit'))\
                                 .select_related('content_type')\
                                 .order_by('object_id'),
                             per_page
