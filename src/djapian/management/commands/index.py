@@ -34,7 +34,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
     counter = [0]
 
     def reset_counter():
-        counter[0] = [0]
+        counter[0] = 0
 
     def after_index(obj):
         counter[0] += 1
