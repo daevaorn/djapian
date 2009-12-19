@@ -352,16 +352,19 @@ class Indexer(object):
         """
         Returns stemmig language for given object if acceptable or model wise
         """
-        language = getattr(settings, "DJAPIAN_STEMMING_LANG", "none") # Use the language defined in DJAPIAN_STEMMING_LANG
+        # Use the language defined in DJAPIAN_STEMMING_LANG
+        language = getattr(settings, 'DJAPIAN_STEMMING_LANG', 'none')
 
-        if language == "multi":
+        if language == 'multi':
+            language = 'none'
+
             if obj:
                 try:
-                    language = self.field_class(self.stemming_lang_accessor).resolve(obj)
+                    language = self.field_class(
+                        self.stemming_lang_accessor, self._model
+                    ).resolve(obj)
                 except AttributeError:
                     pass
-            else:
-                language = "none"
 
         return language
 
