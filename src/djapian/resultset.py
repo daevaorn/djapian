@@ -216,10 +216,10 @@ class ResultSet(object):
     def __getitem__(self, k):
         if not isinstance(k, (slice, int, long)):
             raise TypeError
-        assert ((not isinstance(k, slice) and (k >= 0))
+        if not ((not isinstance(k, slice) and (k >= 0))
                 or (isinstance(k, slice) and (k.start is None or k.start >= 0)
-                    and (k.stop is None or k.stop >= 0))), \
-                "Negative indexing is not supported."
+                    and (k.stop is None or k.stop >= 0))):
+            raise IndexError, "Negative indexing is not supported."
 
         if self._resultset_cache is not None:
             return self._fetch_results()[k]
