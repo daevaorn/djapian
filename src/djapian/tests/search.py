@@ -88,3 +88,25 @@ class OrderingTest(BaseIndexerTest, BaseTestCase):
             list([r.instance for r in self.result.order_by('-rating').prefetch()]),
             entries
         )
+
+class ResultSetTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(ResultSetTest, self).setUp()
+        self.result = Entry.indexer.search("text")
+
+    def test__get_item__1(self):
+        result = self.result._clone()
+        self.assertEqual(result[0].instance.author.name, 'Alex')
+
+    def test__get_item__2(self):
+        result = self.result._clone()
+        self.assertEqual(result[1].instance.author.name, 'Alex')
+
+    def test__get_item__3(self):
+        result = self.result._clone()
+        def test_f():
+            try:
+                res = result[-1]
+            except AssertionError:
+                self.fail("AssertionError has been raised instead of IndexError")
+        self.assertRaises(IndexError, test_f)
