@@ -235,7 +235,7 @@ class ResultSet(object):
 
                 return self._clone(offset=start, limit=limit)
             else:
-                return list(self._clone(offset=k, limit=1))[k]
+                return iter(self._clone(offset=k, limit=1)).next()
 
     def __unicode__(self):
         return u"<ResultSet: query=%s>" % force_unicode(self._query_str)
