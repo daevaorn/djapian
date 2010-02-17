@@ -1,6 +1,7 @@
 import xapian
 import operator
 from copy import deepcopy
+from itertools import imap
 
 from django.db.models import get_model
 from django.utils.encoding import force_unicode
@@ -10,7 +11,8 @@ from djapian import utils, decider
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=None,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
-                 filter=None, exclude=None, prefetch_select_related=False, collapse_by=None):
+                 filter=None, exclude=None, prefetch_select_related=False,
+                 collapse_by=None, instances=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
@@ -19,6 +21,7 @@ class ResultSet(object):
         self._collapse_by = collapse_by
         self._prefetch = prefetch
         self._prefetch_select_related = prefetch_select_related
+        self._instances = instances
         self._filter = filter or decider.X()
         self._exclude = exclude or decider.X()
 
@@ -50,6 +53,9 @@ class ResultSet(object):
             prefetch=True,
             prefetch_select_related=select_related
         )
+
+    def instances(self):
+        return self._clone(instances=True)
 
     def order_by(self, field, relevance_first=False):
         return self._clone(order_by=(field, relevance_first))
@@ -124,6 +130,7 @@ class ResultSet(object):
             "order_by": self._order_by,
             "collapse_by": self._collapse_by,
             "prefetch": self._prefetch,
+            "instances": self._instances,
             "prefetch_select_related": self._prefetch_select_related,
             "flags": self._flags,
             "stemming_lang": self._stemming_lang,
@@ -207,6 +214,8 @@ class ResultSet(object):
 
     def __iter__(self):
         self._fetch_results()
+        if self._instances:
+            return imap(lambda hit: hit.instance, self._resultset_cache)
         return iter(self._resultset_cache)
 
     def __len__(self):
@@ -222,7 +231,8 @@ class ResultSet(object):
             raise IndexError, "Negative indexing is not supported."
 
         if self._resultset_cache is not None:
-            return self._fetch_results()[k]
+            hit = self._fetch_results()[k]
+            return self._instances and hit.instance or hit
         else:
             if isinstance(k, slice):
                 start, stop = k.start, k.stop

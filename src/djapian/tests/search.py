@@ -110,3 +110,21 @@ class ResultSetTest(BaseIndexerTest, BaseTestCase):
             except AssertionError:
                 self.fail("AssertionError has been raised instead of IndexError")
         self.assertRaises(IndexError, test_f)
+
+class ResultSetInstancesTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(ResultSetInstancesTest, self).setUp()
+        self.result = Entry.indexer.search("text")
+
+    def test_instances__iter__(self):
+        result = list(self.result.instances())
+        result.sort(key=lambda i: i.pk)
+
+        expected = self.entries[0:3]
+        expected.sort(key=lambda i: i.pk)
+
+        self.assertEqual(result, expected)
+
+    def test_instances__get_item__1(self):
+        result = self.result.instances()
+        self.assertEqual(result[0].author.name, 'Alex')
