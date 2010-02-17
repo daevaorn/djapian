@@ -10,12 +10,13 @@ from djapian import utils, decider
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=None,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
-                 filter=None, exclude=None, prefetch_select_related=False):
+                 filter=None, exclude=None, prefetch_select_related=False, collapse_by=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
         self._limit = limit
         self._order_by = order_by
+        self._collapse_by = collapse_by
         self._prefetch = prefetch
         self._prefetch_select_related = prefetch_select_related
         self._filter = filter or decider.X()
@@ -79,6 +80,9 @@ class ResultSet(object):
     def best_match(self):
         return self._clone()[0]
 
+    def collapse_by(self, field):
+        return self._clone(collapse_by=field)
+
     # Private methods
 
     def _prepare_fields(self, fields=None, raw_fields=None):
@@ -118,6 +122,7 @@ class ResultSet(object):
             "offset": self._offset,
             "limit": self._limit,
             "order_by": self._order_by,
+            "collapse_by": self._collapse_by,
             "prefetch": self._prefetch,
             "prefetch_select_related": self._prefetch_select_related,
             "flags": self._flags,
@@ -164,6 +169,7 @@ class ResultSet(object):
                 self._stemming_lang,
                 self._filter,
                 self._exclude,
+                self._collapse_by,
             )
 
     def _fetch_results(self):
@@ -186,12 +192,14 @@ class ResultSet(object):
             percent = match.get_percent()
             rank = match.get_rank()
             weight = match.get_weight()
+            collapse_count = match.get_collapse_count() or None
+            collapse_key = match.get_collapse_key() or None
 
             tags = dict([(tag.prefix, tag.extract(doc))\
                                 for tag in self._indexer.tags])
 
             self._resultset_cache.append(
-                Hit(pk, model, percent, rank, weight, tags)
+                Hit(pk, model, percent, rank, weight, tags, collapse_count, collapse_key)
             )
 
         if self._prefetch:
@@ -233,13 +241,15 @@ class ResultSet(object):
         return u"<ResultSet: query=%s>" % force_unicode(self._query_str)
 
 class Hit(object):
-    def __init__(self, pk, model, percent, rank, weight, tags):
+    def __init__(self, pk, model, percent, rank, weight, tags, collapse_count, collapse_key):
         self.pk = pk
         self.model = model
         self.percent = percent
         self.rank = rank
         self.weight = weight
         self.tags = tags
+        self.collapse_count = collapse_count
+        self.collapse_key = collapse_key
         self._instance = None
 
     def get_instance(self):

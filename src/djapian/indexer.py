@@ -321,7 +321,7 @@ class Indexer(object):
         return "UID-" + "-".join(map(smart_str, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
-                    filter, exclude):
+                    filter, exclude, collapse_by):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -351,6 +351,14 @@ class Indexer(object):
                 enquire.set_sort_by_relevance_then_value(valueno, ascending)
             else:
                 enquire.set_sort_by_value_then_relevance(valueno, ascending)
+
+        if collapse_by:
+            try:
+                valueno = self.tag_index(collapse_by)
+            except (ValueError, TypeError):
+                raise ValueError("Field %s cannot be used in set_collapse_key"
+                                 " because it doen't exist in index" % collapse_by)
+            enquire.set_collapse_key(valueno)
 
         query, query_parser = self._parse_query(query, database, flags, stemming_lang)
         enquire.set_query(
