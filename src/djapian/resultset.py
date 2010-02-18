@@ -12,7 +12,7 @@ class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=None,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
                  filter=None, exclude=None, prefetch_select_related=False,
-                 collapse_by=None, instances=None):
+                 collapse_by=None, instances=False):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
