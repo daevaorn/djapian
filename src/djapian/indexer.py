@@ -379,7 +379,7 @@ class Indexer(object):
 
     def _get_stem_language(self, obj=None):
         """
-        Returns stemmig language for given object if acceptable or model wise
+        Returns stemming language for given object if acceptable or model wise
         """
         # Use the language defined in DJAPIAN_STEMMING_LANG
         language = getattr(settings, 'DJAPIAN_STEMMING_LANG', 'none')
