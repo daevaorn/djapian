@@ -128,3 +128,14 @@ class ResultSetInstancesTest(BaseIndexerTest, BaseTestCase):
     def test_instances__get_item__1(self):
         result = self.result.instances()
         self.assertEqual(result[0].author.name, 'Alex')
+
+class FlagsTest(BaseIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(FlagsTest, self).setUp()
+
+        self.result = Entry.indexer.search('mess').flags(
+            Entry.indexer.flags.PARTIAL
+        )
+
+    def test_result(self):
+        self.assertEqual(len(self.result), 2)

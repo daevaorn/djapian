@@ -112,6 +112,17 @@ class Indexer(object):
     trigger = lambda indexer, obj: True
     stemming_lang_accessor = None
 
+    flags = type.__new__(
+        type,
+        'SearchFlags',
+        (object,),
+        dict([
+            (name[5:], value)\
+                for name, value in xapian.QueryParser.__dict__.iteritems()\
+                    if name.startswith('FLAG_')
+        ])
+    )
+
     def __init__(self, db, model):
         """
         Initialize an Indexer whose index data to `db`.
