@@ -136,6 +136,9 @@ class Command(BaseCommand):
         make_option('--daemonize', dest='make_daemon', default=False,
                     action='store_true',
                     help='Do not fork the process'),
+        make_option('--loop', dest='loop', default=False,
+                    action='store_true',
+                    help='Run update loop indefinetely'),
         make_option('--time-out', dest='timeout', default=10, type='int',
                     help='Time to sleep between each query to the'
                          ' database (default: %default)'),
@@ -153,7 +156,7 @@ class Command(BaseCommand):
 
     requires_model_validation = True
 
-    def handle(self, verbose=False, make_daemon=False, timeout=10,
+    def handle(self, verbose=False, make_daemon=False, loop=False, timeout=10,
                rebuild_index=False, per_page=1000, commit_each=False,
                *args, **options):
         utils.load_indexes()
@@ -164,7 +167,7 @@ class Command(BaseCommand):
         if rebuild_index:
             rebuild(verbose, per_page, commit_each)
         else:
-            update_changes(verbose, timeout, not make_daemon, per_page, commit_each)
+            update_changes(verbose, timeout, not (loop or make_daemon), per_page, commit_each)
 
         if verbose:
             print '\n'
