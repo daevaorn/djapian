@@ -29,6 +29,9 @@ class FilteringTest(BaseIndexerTest, BaseTestCase):
         self.assertEqual(self.result.filter(X(count__lt=6) & ~X(count=5)).count(), 1)
         self.assertEqual(self.result.filter(X(count=7) | X(count=5)).count(), 2)
 
+    def test_convert(self):
+        self.assertEqual(self.result.filter(author_id=1).count(), 3)
+
 class LookupTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
         super(LookupTest, self).setUp()

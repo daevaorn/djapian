@@ -10,7 +10,7 @@ class IndexerTest(BaseTestCase):
         self.assertEqual(len(Entry.indexer.fields), 1)
 
     def test_tags_count(self):
-        self.assertEqual(len(Entry.indexer.tags), 8)
+        self.assertEqual(len(Entry.indexer.tags), 9)
 
 class FieldResolverTest(BaseTestCase):
     def setUp(self):

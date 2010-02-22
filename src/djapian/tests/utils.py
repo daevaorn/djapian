@@ -53,6 +53,7 @@ class EntryIndexer(djapian.Indexer):
     fields = ["text"]
     tags = [
         ("author", "author.name"),
+        ("author_id", "author.id"),
         ("title", "title", 3),
         ("tag", "tags", 2),
         ("date", "created_on"),
