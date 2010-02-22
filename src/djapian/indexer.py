@@ -276,8 +276,6 @@ class Indexer(object):
                 commiter.cancel_page()
                 raise
 
-        database.flush()
-
     def search(self, query):
         return ResultSet(self, query)
 
