@@ -48,7 +48,7 @@ class Field(object):
             # DateTime fields are stored as %Y%m%d%H%M%S (better sorting)
             value = field_value.strftime('%Y%m%d%H%M%S')
 
-        return value
+        return smart_str(value)
 
     def resolve_one(self, value, name):
         value = getattr(value, name)
@@ -74,7 +74,7 @@ class Field(object):
         if isinstance(value, self.raw_types):
             return value
         if is_iterable(value):
-            return u', '.join(map(smart_str, value))
+            return ', '.join(map(smart_str, value))
 
         return value and smart_str(value) or None
 
@@ -252,15 +252,17 @@ class Indexer(object):
                             except AttributeError:
                                 continue
 
+                            if value is None:
+                                continue
+
                             if field.prefix:
-                                index_value = field.convert(value)
-                                if index_value is not None:
-                                    doc.add_value(field.number, smart_str(index_value))
+                                doc.add_value(field.number, field.convert(value))
 
                             prefix = smart_str(field.get_tag())
-                            generator.index_text(smart_str(value), field.weight, prefix)
+                            value = smart_str(value)
+                            generator.index_text(value, field.weight, prefix)
                             if prefix:  # if prefixed then also index without prefix
-                                generator.index_text(smart_str(value), field.weight)
+                                generator.index_text(value, field.weight)
 
                         database.replace_document(uid, doc)
                         if after_index:
