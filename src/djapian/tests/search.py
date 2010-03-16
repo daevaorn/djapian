@@ -139,3 +139,12 @@ class FlagsTest(BaseIndexerTest, BaseTestCase):
 
     def test_result(self):
         self.assertEqual(len(self.result), 2)
+
+from djapian.tests.utils import WeightenedIndexerTest, WeightenedEntry
+class WeightenedSearchTest(WeightenedIndexerTest, BaseTestCase):
+    def setUp(self):
+        super(WeightenedSearchTest, self).setUp()
+        self.result = WeightenedEntry.indexer.search("entry")
+
+    def test_highest_rating_item_is_on_top(self):
+        self.assertEqual(self.result[0].instance.title.split()[0].lower(), 'third')

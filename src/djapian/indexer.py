@@ -11,6 +11,7 @@ from djapian.resultset import ResultSet
 from djapian import utils, decider
 from djapian.utils.paging import paginate
 from djapian.utils.commiter import Commiter
+from djapian.utils import DEFAULT_WEIGHT
 
 import xapian
 
@@ -245,6 +246,12 @@ class Indexer(object):
                         if stem_lang:
                             generator.set_stemmer(xapian.Stem(stem_lang))
 
+                        # Get a weight for the object
+                        if hasattr(self.__class__, 'weight'):
+                            obj_weight = self.field_class(self.__class__.weight, self._model).resolve(obj)
+                        else:
+                            obj_weight = DEFAULT_WEIGHT
+
                         for field in self.fields + self.tags:
                             # Trying to resolve field value or skip it
                             try:
@@ -260,9 +267,9 @@ class Indexer(object):
 
                             prefix = smart_str(field.get_tag())
                             value = smart_str(value)
-                            generator.index_text(value, field.weight, prefix)
+                            generator.index_text(value, field.weight*obj_weight, prefix)
                             if prefix:  # if prefixed then also index without prefix
-                                generator.index_text(value, field.weight)
+                                generator.index_text(value, field.weight*obj_weight)
 
                         database.replace_document(uid, doc)
                         if after_index:
@@ -332,7 +339,7 @@ class Indexer(object):
         return "UID-" + "-".join(map(smart_str, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
-                    filter, exclude, collapse_by):
+                   filter, exclude, collapse_by):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
