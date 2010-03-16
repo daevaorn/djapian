@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import tempfile
 
 from django.conf import settings
@@ -11,4 +12,4 @@ settings.configure(
 )
 
 if __name__ == "__main__":
-    call_command('test', 'djapian')
+    call_command('test', '.'.join(['djapian'] + sys.argv[1:]))
