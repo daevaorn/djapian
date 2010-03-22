@@ -101,7 +101,13 @@ class Interpreter(cmd.Cmd):
         """
         Returns objects fetched by given query
         """
-        print list(self._current_index.search(query)[self._parse_slice(_slice)])
+        try:
+            _slice = self._parse_slice(_slice)
+        except ValueError:
+            print 'Error: second argument must be slice'
+            return
+
+        print list(self._current_index.search(query)[_slice])
 
     @with_index
     def do_count(self, query):
@@ -173,7 +179,7 @@ class Interpreter(cmd.Cmd):
             model = space.get_indexers().keys()[_model]
             indexer = space.get_indexers()[model][_indexer]
         except (TypeError, IndexError, KeyError, ValueError):
-            print 'Illegal index alias `%s`. See `list` command for available aliases' % index
+            print 'Error: illegal index alias `%s`. See `list` command for available aliases' % index
             return None, None, None, None
 
         return space, model, indexer, [_space, _model, _indexer]
