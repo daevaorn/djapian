@@ -2,6 +2,7 @@ from django.test import TestCase
 
 from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Person, Comment
 from djapian.indexer import CompositeIndexer
+from djapian.tests.utils import WeightenedIndexerTest, WeightenedEntry
 
 class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
@@ -140,7 +141,6 @@ class FlagsTest(BaseIndexerTest, BaseTestCase):
     def test_result(self):
         self.assertEqual(len(self.result), 2)
 
-from djapian.tests.utils import WeightenedIndexerTest, WeightenedEntry
 class WeightenedSearchTest(WeightenedIndexerTest, BaseTestCase):
     def setUp(self):
         super(WeightenedSearchTest, self).setUp()
