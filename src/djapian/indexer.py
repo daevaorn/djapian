@@ -66,7 +66,7 @@ class Field(object):
 
         for bit in bits:
             if is_iterable(value):
-                value = u', '.join(
+                value = ', '.join(
                     map(lambda v: smart_str(self.resolve_one(v, bit)), value)
                 )
             else:
