@@ -113,6 +113,7 @@ class Indexer(object):
     trigger = lambda indexer, obj: True
     stemming_lang_accessor = None
     stemmer_class = xapian.Stem
+    stopper = None
 
     flags = type.__new__(
         type,
@@ -190,6 +191,13 @@ class Indexer(object):
         # instance memoization here because the default stemmer is stateless.
         return self.stemmer_class(stemming_lang)
 
+    def get_stopper(self, lang):
+        """
+        Return a stopper instance for the requested language.
+        """
+        # There are no default stop words lists bundled with Xapian.
+        return self.stopper
+
     @classmethod
     def get_descriptor(cls):
         return ".".join([cls.__module__, cls.__name__]).lower()
@@ -255,6 +263,10 @@ class Indexer(object):
                         if stemming_lang:
                             stemmer = self.get_stemmer(stemming_lang)
                             generator.set_stemmer(stemmer)
+
+                            stopper = self.get_stopper(stemming_lang)
+                            if stopper:
+                                generator.set_stopper(stopper)
 
                         # Get a weight for the object
                         if hasattr(self.__class__, 'weight'):
@@ -349,7 +361,7 @@ class Indexer(object):
         return "UID-" + "-".join(map(smart_str, self._get_meta_values(obj)))
 
     def _do_search(self, query, offset, limit, order_by, flags, stemming_lang,
-                   filter, exclude, collapse_by):
+                   filter, exclude, collapse_by, stopper):
         """
         flags are as defined in the Xapian API :
         http://www.xapian.org/docs/apidoc/html/classXapian_1_1QueryParser.html
@@ -388,7 +400,7 @@ class Indexer(object):
                                  " because it doen't exist in index" % collapse_by)
             enquire.set_collapse_key(valueno)
 
-        query, query_parser = self._parse_query(query, database, flags, stemming_lang)
+        query, query_parser = self._parse_query(query, database, flags, stemming_lang, stopper)
         enquire.set_query(
             query
         )
@@ -425,7 +437,7 @@ class Indexer(object):
 
         return language
 
-    def _parse_query(self, term, db, flags, stemming_lang):
+    def _parse_query(self, term, db, flags, stemming_lang, stopper):
         """
         Parses search queries
         """
@@ -448,6 +460,11 @@ class Indexer(object):
             stemmer = self.get_stemmer(stemming_lang)
             query_parser.set_stemmer(stemmer)
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
+
+            if not stopper:
+                stopper = self.get_stopper(stemming_lang)
+            if stopper:
+                query_parser.set_stopper(stopper)
 
         parsed_query = query_parser.parse_query(term, flags)
 

@@ -192,12 +192,49 @@ class WeightenedIndexerTest(BaseIndexerTest):
 
         WeightenedEntry.indexer.update()
 
+class StemEntry(models.Model):
+    title = models.CharField(max_length=250, primary_key=True)
+    text = models.TextField()
+
+    class Meta:
+        app_label = "djapian"
+
 class MyStem(djapian.Indexer.stemmer_class):
     def __call__(self, term):
         return term.lstrip()[:3]
 
 class StemEntryIndexer(djapian.Indexer):
-    fields = ["title"]
+    fields = ["title", "text"]
     stemmer_class = MyStem
 
-djapian.add_index(Entry, StemEntryIndexer, attach_as='indexer_stem')
+    def get_stopper(self, lang=None):
+        import xapian
+        stopper = xapian.SimpleStopper()
+        for stop_word in "the a an in at on for to".split():
+            stopper.add(stop_word)
+        return stopper
+
+djapian.add_index(StemEntry, StemEntryIndexer, attach_as='indexer')
+
+class StemIndexerTest(BaseIndexerTest):
+    def setUp(self):
+        super(StemIndexerTest, self).setUp()
+
+        self.stopper = StemEntry.indexer.get_stopper("en")
+
+        self.stem_entries = [
+            StemEntry.objects.create(
+                title="Test entry",
+                text="Not large text field wich helps us to test Djapian"
+            ),
+            StemEntry.objects.create(
+                title="Another test entry - second",
+                text="Another not useful text message for tests",
+            ),
+            StemEntry.objects.create(
+                title="Third entry for testing",
+                text="Third message text",
+            ),
+        ]
+
+        StemEntry.indexer.update()

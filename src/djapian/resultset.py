@@ -12,7 +12,7 @@ class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=None,
                  order_by=None, prefetch=False, flags=None, stemming_lang=None,
                  filter=None, exclude=None, prefetch_select_related=False,
-                 collapse_by=None, instances=False):
+                 collapse_by=None, instances=False, stopper=None):
         self._indexer = indexer
         self._query_str = query_str
         self._offset = offset
@@ -31,6 +31,7 @@ class ResultSet(object):
                         | xapian.QueryParser.FLAG_LOVEHATE
         self._flags = flags
         self._stemming_lang = stemming_lang
+        self._stopper = stopper
 
         self._resultset_cache = None
         self._mset = None
@@ -65,6 +66,9 @@ class ResultSet(object):
 
     def stemming(self, lang):
         return self._clone(stemming_lang=lang)
+
+    def stopper(self, stopper):
+        return self._clone(stopper=stopper)
 
     def count(self):
         return self._clone()._do_count()
@@ -134,6 +138,7 @@ class ResultSet(object):
             "prefetch_select_related": self._prefetch_select_related,
             "flags": self._flags,
             "stemming_lang": self._stemming_lang,
+            "stopper": self._stopper,
             "filter": deepcopy(self._filter),
             "exclude": deepcopy(self._exclude),
         }
@@ -177,6 +182,7 @@ class ResultSet(object):
                 self._filter,
                 self._exclude,
                 self._collapse_by,
+                self._stopper,
             )
 
     def _fetch_results(self):
