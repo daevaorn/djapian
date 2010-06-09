@@ -251,9 +251,9 @@ class Indexer(object):
                         generator.set_document(doc)
                         generator.set_flags(xapian.TermGenerator.FLAG_SPELLING)
 
-                        stem_lang = self._get_stem_language(obj)
-                        if stem_lang:
-                            stemmer = self.get_stemmer(stem_lang)
+                        stemming_lang = self._get_stem_language(obj)
+                        if stemming_lang:
+                            stemmer = self.get_stemmer(stemming_lang)
                             generator.set_stemmer(stemmer)
 
                         # Get a weight for the object
