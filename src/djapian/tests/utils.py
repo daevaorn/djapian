@@ -191,3 +191,13 @@ class WeightenedIndexerTest(BaseIndexerTest):
         ]
 
         WeightenedEntry.indexer.update()
+
+class MyStem(djapian.Indexer.stemmer_class):
+    def __call__(self, term):
+        return term.lstrip()[:3]
+
+class StemEntryIndexer(djapian.Indexer):
+    fields = ["title"]
+    stemmer_class = MyStem
+
+djapian.add_index(Entry, StemEntryIndexer, attach_as='indexer_stem')

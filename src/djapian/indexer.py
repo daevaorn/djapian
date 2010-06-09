@@ -112,6 +112,7 @@ class Indexer(object):
     aliases = {}
     trigger = lambda indexer, obj: True
     stemming_lang_accessor = None
+    stemmer_class = xapian.Stem
 
     flags = type.__new__(
         type,
@@ -181,6 +182,14 @@ class Indexer(object):
 
         return None
 
+    def get_stemmer(self, stemming_lang):
+        """
+        Return a stemmer instance for the requested stemming language.
+        """
+        # Just returns a stemmer instance. We do not provide any optimization like
+        # instance memoization here because the default stemmer is stateless.
+        return self.stemmer_class(stemming_lang)
+
     @classmethod
     def get_descriptor(cls):
         return ".".join([cls.__module__, cls.__name__]).lower()
@@ -244,7 +253,8 @@ class Indexer(object):
 
                         stem_lang = self._get_stem_language(obj)
                         if stem_lang:
-                            generator.set_stemmer(xapian.Stem(stem_lang))
+                            stemmer = self.get_stemmer(stem_lang)
+                            generator.set_stemmer(stemmer)
 
                         # Get a weight for the object
                         if hasattr(self.__class__, 'weight'):
@@ -435,7 +445,8 @@ class Indexer(object):
             stemming_lang = self._get_stem_language()
 
         if stemming_lang:
-            query_parser.set_stemmer(xapian.Stem(stemming_lang))
+            stemmer = self.get_stemmer(stemming_lang)
+            query_parser.set_stemmer(stemmer)
             query_parser.set_stemming_strategy(xapian.QueryParser.STEM_SOME)
 
         parsed_query = query_parser.parse_query(term, flags)

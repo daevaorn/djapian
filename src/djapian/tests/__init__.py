@@ -6,3 +6,4 @@ from djapian.tests.pagination import *
 from djapian.tests.filtering import *
 from djapian.tests.pickling import *
 from djapian.tests.collapse import *
+from djapian.tests.stem import *
