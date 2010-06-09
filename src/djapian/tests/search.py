@@ -66,6 +66,13 @@ class CorrectedQueryStringTest(BaseIndexerTest, BaseTestCase):
 
         self.assertEqual(results.get_corrected_query_string(), "text")
 
+class ParsedQueryTermsTest(BaseIndexerTest, BaseTestCase):
+    def test_parsed_query(self):
+        results = Entry.indexer.search("finding texts").stemming("en")
+
+        self.assertEqual(list(results.get_parsed_query_terms()),
+                         ["find", "text"])
+
 class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
         super(CompositeIndexerTest, self).setUp()

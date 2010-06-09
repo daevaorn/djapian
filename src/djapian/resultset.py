@@ -93,6 +93,13 @@ class ResultSet(object):
     def collapse_by(self, field):
         return self._clone(collapse_by=field)
 
+    def get_parsed_query_terms(self):
+        clone = self._clone(stopper=None) # should not drop stop-words here
+        clone._get_mset() # FIXME: this performs full search even if we need
+                          # only a QueryParser instance here,
+        clone._query_parser.set_stemming_strategy(xapian.QueryParser.STEM_ALL)
+        return clone._query_parser.parse_query(clone._query_str)
+
     # Private methods
 
     def _prepare_fields(self, fields=None, raw_fields=None):
