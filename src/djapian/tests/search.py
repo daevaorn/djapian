@@ -73,6 +73,20 @@ class ParsedQueryTermsTest(BaseIndexerTest, BaseTestCase):
         self.assertEqual(list(results.get_parsed_query_terms()),
                          ["find", "text"])
 
+class HighlightTest(BaseIndexerTest, BaseTestCase):
+    TEXT = "Another not useful text message for tests"
+    EXPECTED_RESULT = "Another not useful <strong>text</strong> message <strong>for</strong> tests"
+
+    def test_highlight_clear_text(self):
+        results = Entry.indexer.search("text for")
+
+        self.assertEqual(results.highlight(self.TEXT), self.EXPECTED_RESULT)
+
+    def test_highlight_stemming(self):
+        results = Entry.indexer.search("texts for").stemming("en")
+
+        self.assertEqual(results.highlight(self.TEXT), self.EXPECTED_RESULT)
+
 class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
         super(CompositeIndexerTest, self).setUp()

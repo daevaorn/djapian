@@ -100,6 +100,19 @@ class ResultSet(object):
         clone._query_parser.set_stemming_strategy(xapian.QueryParser.STEM_ALL)
         return clone._query_parser.parse_query(clone._query_str)
 
+    def highlight(self, text, tag="strong"):
+        terms = tuple(self.get_parsed_query_terms())
+        if self._stemming_lang:
+            stem = self._indexer.get_stemmer(self._stemming_lang)
+        else:
+            stem = lambda a: a
+        # FIXME: should we support older Python versions without built-in `set' type?
+        for word in set(text.split()):
+            if stem(word.lower()) in terms:
+                args = {"tag": tag, "word": word}
+                text = text.replace(word, '<%(tag)s>%(word)s</%(tag)s>' % args)
+        return text
+
     # Private methods
 
     def _prepare_fields(self, fields=None, raw_fields=None):
