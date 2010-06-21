@@ -437,7 +437,7 @@ class Indexer(object):
 
         return language
 
-    def _parse_query(self, term, db, flags, stemming_lang, stopper):
+    def _parse_query(self, term, db, flags, stemming_lang, stopper=None):
         """
         Parses search queries
         """
@@ -463,8 +463,9 @@ class Indexer(object):
 
             if not stopper:
                 stopper = self.get_stopper(stemming_lang)
-            if stopper:
-                query_parser.set_stopper(stopper)
+
+        if stopper:
+            query_parser.set_stopper(stopper)
 
         parsed_query = query_parser.parse_query(term, flags)
 
