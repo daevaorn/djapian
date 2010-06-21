@@ -437,21 +437,20 @@ class Indexer(object):
 
         return language
 
-    def _parse_query(self, term, db, flags, stemming_lang, stopper=None):
+    def _get_query_parser(self, stemming_lang, stopper=None):
         """
-        Parses search queries
+        Creates a Xapian QueryParser object and applies
+        a stemmer, a stopper and prefixes for tags and aliases
         """
-        # Instance Xapian Query Parser
         query_parser = xapian.QueryParser()
+
+        query_parser.set_default_op(xapian.Query.OP_AND)
 
         for field in self.tags:
             query_parser.add_prefix(field.prefix.lower(), field.get_tag())
             if field.prefix in self.aliases:
                 for alias in self.aliases[field.prefix]:
                     query_parser.add_prefix(alias, field.get_tag())
-
-        query_parser.set_database(db)
-        query_parser.set_default_op(xapian.Query.OP_AND)
 
         if stemming_lang in (None, "none"):
             stemming_lang = self._get_stem_language()
@@ -466,6 +465,16 @@ class Indexer(object):
 
         if stopper:
             query_parser.set_stopper(stopper)
+
+        return query_parser
+
+    def _parse_query(self, term, db, flags, stemming_lang, stopper=None):
+        """
+        Parses search queries
+        """
+        # Instance Xapian Query Parser
+        query_parser = self._get_query_parser(stemming_lang, stopper)
+        query_parser.set_database(db)
 
         parsed_query = query_parser.parse_query(term, flags)
 

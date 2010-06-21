@@ -95,10 +95,12 @@ class ResultSet(object):
 
     def get_parsed_query_terms(self):
         clone = self._clone(stopper=None) # should not drop stop-words here
-        clone._get_mset() # FIXME: this performs full search even if we need
-                          # only a QueryParser instance here,
-        clone._query_parser.set_stemming_strategy(xapian.QueryParser.STEM_ALL)
-        return clone._query_parser.parse_query(clone._query_str)
+        query_parser = clone._indexer._get_query_parser(
+            self._stemming_lang,
+            self._stopper,
+        )
+        query_parser.set_stemming_strategy(xapian.QueryParser.STEM_ALL)
+        return query_parser.parse_query(clone._query_str)
 
     def highlight(self, text, tag="strong"):
         terms = tuple(self.get_parsed_query_terms())
