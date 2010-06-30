@@ -227,8 +227,8 @@ class ResultSet(object):
             percent = match.percent
             rank = match.rank
             weight = match.weight
-            collapse_count = match.get_collapse_count() or None
-            collapse_key = match.get_collapse_key() or None
+            collapse_count = match.collapse_count or None
+            collapse_key = match.collapse_key or None
 
             tags = dict([(tag.prefix, tag.extract(doc))\
                                 for tag in self._indexer.tags])
