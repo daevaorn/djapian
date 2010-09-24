@@ -1,5 +1,6 @@
-from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import ImproperlyConfigured
+from django.db import models, transaction
 from django.utils.daemonize import become_daemon
 from django.contrib.contenttypes.models import ContentType
 
@@ -16,8 +17,12 @@ from djapian.utils.paging import paginate
 from djapian.utils.commiter import Commiter
 from djapian import IndexSpace
 
-def get_content_types(*actions):
-    types = Change.objects.filter(action__in=actions)\
+def get_content_types(app_models, *actions):
+    lookup_args = dict(action__in=actions)
+    if app_models is not None:
+        ct_list = [ContentType.objects.get_for_model(model) for model in app_models]
+        lookup_args.update(dict(content_type__in=ct_list))
+    types = Change.objects.filter(models.Q(**lookup_args))\
                     .values_list('content_type', flat=True)\
                     .distinct()
     return ContentType.objects.filter(pk__in=types)
@@ -30,7 +35,7 @@ def get_indexers(content_type):
     )
 
 @transaction.commit_manually
-def update_changes(verbose, timeout, once, per_page, commit_each):
+def update_changes(verbose, timeout, once, per_page, commit_each, app_models=None):
     counter = [0]
 
     def reset_counter():
@@ -54,7 +59,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
         if count > 0 and verbose:
             print 'There are %d objects to update' % count
 
-        for ct in get_content_types('add', 'edit'):
+        for ct in get_content_types(app_models, 'add', 'edit'):
             indexers = get_indexers(ct)
 
             for page in paginate(
@@ -91,7 +96,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
 
                 reset_counter()
 
-        for ct in get_content_types('delete'):
+        for ct in get_content_types(app_models, 'delete'):
             indexers = get_indexers(ct)
 
             for change in Change.objects.filter(content_type=ct, action='delete'):
@@ -117,7 +122,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each):
 
         time.sleep(timeout)
 
-def rebuild(verbose, per_page, commit_each):
+def rebuild(verbose, per_page, commit_each, app_models=None):
     def after_index(obj):
         if verbose:
             sys.stdout.write('.')
@@ -125,13 +130,15 @@ def rebuild(verbose, per_page, commit_each):
 
     for space in IndexSpace.instances:
         for model, indexers in space.get_indexers().iteritems():
-            for indexer in indexers:
-                indexer.clear()
-                indexer.update(None, after_index, per_page, commit_each)
+            if app_models is None or model in app_models:
+                for indexer in indexers:
+                    indexer.clear()
+                    indexer.update(None, after_index, per_page, commit_each)
 
 class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
-        make_option('--verbose', action='store_true', default=False,
+        make_option('--verbose', dest='verbose', default=False,
+                    action='store_true',
                     help='Verbosity output'),
         make_option('--daemonize', dest='make_daemon', default=False,
                     action='store_true',
@@ -139,14 +146,15 @@ class Command(BaseCommand):
         make_option('--loop', dest='loop', default=False,
                     action='store_true',
                     help='Run update loop indefinetely'),
-        make_option('--time-out', dest='timeout', default=10, type='int',
+        make_option('--time-out', dest='timeout', default=10,
+                    action='store', type='int',
                     help='Time to sleep between each query to the'
                          ' database (default: %default)'),
         make_option('--rebuild', dest='rebuild_index', default=False,
                     action='store_true',
                     help='Rebuild index database'),
         make_option('--per_page', dest='per_page', default=1000,
-                    action='store', type=int,
+                    action='store', type='int',
                     help='Working page size'),
         make_option('--commit_each', dest='commit_each', default=False,
                     action='store_true',
@@ -156,18 +164,41 @@ class Command(BaseCommand):
 
     requires_model_validation = True
 
-    def handle(self, verbose=False, make_daemon=False, loop=False, timeout=10,
-               rebuild_index=False, per_page=1000, commit_each=False,
-               *args, **options):
+    def handle(self, *app_labels, **options):
+        verbose = options['verbose']
+
+        make_daemon = options['make_daemon']
+        loop = options['loop']
+        timeout = options['timeout']
+        rebuild_index = options['rebuild_index']
+        per_page = options['per_page']
+        commit_each = options['commit_each']
+
         utils.load_indexes()
 
         if make_daemon:
             become_daemon()
 
-        if rebuild_index:
-            rebuild(verbose, per_page, commit_each)
+        if app_labels:
+            try:
+                app_list = [models.get_app(app_label) for app_label in app_labels]
+            except (ImproperlyConfigured, ImportError), e:
+                raise CommandError("%s. Are you sure your INSTALLED_APPS setting is correct?" % e)
+            for app in app_list:
+                app_models = models.get_models(app, include_auto_created=True)
+                if rebuild_index:
+                    rebuild(verbose, per_page, commit_each, app_models)
+                else:
+                    update_changes(verbose, timeout,
+                                   not (loop or make_daemon),
+                                   per_page, commit_each, app_models)
         else:
-            update_changes(verbose, timeout, not (loop or make_daemon), per_page, commit_each)
+            if rebuild_index:
+                rebuild(verbose, per_page, commit_each)
+            else:
+                update_changes(verbose, timeout,
+                               not (loop or make_daemon),
+                               per_page, commit_each)
 
         if verbose:
             print '\n'
