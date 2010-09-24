@@ -269,29 +269,9 @@ class Indexer(object):
                                 generator.set_stopper(stopper)
 
                         # Get a weight for the object
-                        if hasattr(self.__class__, 'weight'):
-                            obj_weight = self.field_class(self.__class__.weight, self._model).resolve(obj)
-                        else:
-                            obj_weight = DEFAULT_WEIGHT
-
-                        for field in self.fields + self.tags:
-                            # Trying to resolve field value or skip it
-                            try:
-                                value = field.resolve(obj)
-                            except AttributeError:
-                                continue
-
-                            if value is None:
-                                continue
-
-                            if field.prefix:
-                                doc.add_value(field.number, field.convert(value))
-
-                            prefix = smart_str(field.get_tag())
-                            value = smart_str(value)
-                            generator.index_text(value, field.weight*obj_weight, prefix)
-                            if prefix:  # if prefixed then also index without prefix
-                                generator.index_text(value, field.weight*obj_weight)
+                        obj_weight = self._get_object_weight(obj)
+                        # Index fields
+                        self._do_index_fields(doc, generator, obj, obj_weight)
 
                         database.replace_document(uid, doc)
                         if after_index:
@@ -479,6 +459,39 @@ class Indexer(object):
         parsed_query = query_parser.parse_query(term, flags)
 
         return parsed_query, query_parser
+
+    def _get_object_weight(self, obj):
+        """
+        Returns a default weight value for the object. 
+        """
+        if hasattr(self.__class__, 'weight'):
+            obj_weight = self.field_class(self.__class__.weight, self._model).resolve(obj)
+        else:
+            obj_weight = DEFAULT_WEIGHT
+        return obj_weight
+
+    def _do_index_fields(self, doc, generator, obj, obj_weight):
+        """
+        Indexes fields of the object.
+        """
+        for field in self.fields + self.tags:
+            # Trying to resolve field value or skip it
+            try:
+                value = field.resolve(obj)
+            except AttributeError:
+                continue
+
+            if value is None:
+                continue
+
+            if field.prefix:
+                doc.add_value(field.number, field.convert(value))
+
+            prefix = smart_str(field.get_tag())
+            value = smart_str(value)
+            generator.index_text(value, field.weight*obj_weight, prefix)
+            if prefix:  # if prefixed then also index without prefix
+                generator.index_text(value, field.weight*obj_weight)
 
 class CompositeIndexer(Indexer):
     def __init__(self, *indexers):
