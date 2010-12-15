@@ -90,7 +90,10 @@ class HighlightTest(BaseIndexerTest, BaseTestCase):
 class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
         super(CompositeIndexerTest, self).setUp()
-        self.indexer = CompositeIndexer(Entry.indexer, Comment.indexer)
+        class StemNothingCompositeIndexer(CompositeIndexer):
+            def _get_stem_language(self, obj=None):
+                return 'none'
+        self.indexer = StemNothingCompositeIndexer(Entry.indexer, Comment.indexer)
 
     def test_search(self):
         results = self.indexer.search('entry')

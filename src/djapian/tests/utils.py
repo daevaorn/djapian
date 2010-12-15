@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from django.db import models
 from django.test import TestCase
 
+import xapian
 import djapian
 
 class Person(models.Model):
@@ -67,12 +68,16 @@ class EntryIndexer(djapian.Indexer):
         "author": "user",
     }
     trigger = lambda indexer, obj: obj.is_active
+    def _get_stem_language(self, obj=None):
+        return 'none'
 
 class CommentIndexer(djapian.Indexer):
     fields = ['text']
     tags = [
         ('author', 'author.name')
     ]
+    def _get_stem_language(self, obj=None):
+        return 'none'
 
 djapian.add_index(Entry, EntryIndexer, attach_as='indexer')
 djapian.add_index(Comment, CommentIndexer, attach_as='indexer')
@@ -199,9 +204,13 @@ class StemEntry(models.Model):
     class Meta:
         app_label = "djapian"
 
-class MyStem(djapian.Indexer.stemmer_class):
+class MyStemImplementation(xapian.StemImplementation):
     def __call__(self, term):
         return term.lstrip()[:3]
+
+class MyStem(xapian.Stem):
+    def __init__(self, *args):
+        super(MyStem, self).__init__(MyStemImplementation())
 
 class StemEntryIndexer(djapian.Indexer):
     fields = ["title", "text"]
