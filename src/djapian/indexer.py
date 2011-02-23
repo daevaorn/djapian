@@ -7,11 +7,12 @@ from djapian.signals import post_save, pre_delete
 from django.conf import settings
 from django.utils.encoding import smart_str
 
+from djapian import decider
+from djapian.database import CompositeDatabase
 from djapian.resultset import ResultSet
-from djapian import utils, decider
 from djapian.utils.paging import paginate
 from djapian.utils.commiter import Commiter
-from djapian.utils import DEFAULT_WEIGHT
+from djapian.utils import DEFAULT_WEIGHT, model_name
 
 import xapian
 
@@ -19,7 +20,7 @@ class Field(object):
     raw_types = (int, long, float, basestring, bool, models.Model,
                  datetime.time, datetime.date, datetime.datetime)
 
-    def __init__(self, path, model, weight=utils.DEFAULT_WEIGHT, prefix='', number=None):
+    def __init__(self, path, model, weight=DEFAULT_WEIGHT, prefix='', number=None):
         self.path = path
         self.weight = weight
         self.prefix = prefix
@@ -151,7 +152,7 @@ class Indexer(object):
             if len(field) == 3:
                 weight = field[2]
             else:
-                weight = utils.DEFAULT_WEIGHT
+                weight = DEFAULT_WEIGHT
 
             self.tags.append(self.field_class(path, self._model, weight, prefix=tag, number=valueno))
             valueno += 1
@@ -180,8 +181,6 @@ class Indexer(object):
         for field in self.tags:
             if field.prefix == name:
                 return field.number
-
-        return None
 
     def get_stemmer(self, stemming_lang):
         """
@@ -315,7 +314,7 @@ class Indexer(object):
         """Initialize attributes"""
         self._db = db
         self._model = model
-        self._model_name = model and utils.model_name(model)
+        self._model_name = model and model_name(model)
 
         self.fields = [] # Simple text fields
         self.tags = [] # Prefixed fields
@@ -495,8 +494,7 @@ class Indexer(object):
 
 class CompositeIndexer(Indexer):
     def __init__(self, *indexers):
-        from djapian.database import CompositeDatabase
-
+        self._indexers = indexers
         self._prepare(
             db=CompositeDatabase([indexer._db for indexer in indexers])
         )
@@ -506,3 +504,7 @@ class CompositeIndexer(Indexer):
 
     def update(self, *args):
         raise NotImplementedError
+
+    def tag_index(self, name):
+        return reduce(lambda a, b: a == b and a or None,
+                      [indexer.tag_index(name) for indexer in self._indexers])

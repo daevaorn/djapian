@@ -1,6 +1,7 @@
 from django.test import TestCase
 
-from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry
+from djapian import CompositeIndexer
+from djapian.tests.utils import BaseTestCase, BaseIndexerTest, Entry, Comment
 
 class CollapseTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
@@ -24,3 +25,8 @@ class CollapseTest(BaseIndexerTest, BaseTestCase):
 
     def test_result_hit_collapse_key_is_none(self):
         self.assertEqual(self.result[0].collapse_key, None)
+
+    def test_collapse_composite(self):
+        # all entries have the same author
+        indexer = CompositeIndexer(Entry.indexer, Comment.indexer)
+        self.assertEqual(indexer.search("test").collapse_by("author").count(), 1)
