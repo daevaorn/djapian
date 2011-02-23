@@ -65,7 +65,7 @@ class CompositeDatabase(Database):
         return raw
 
     def create_database(self):
-        raise NonImplementedError
+        raise NotImplementedError
 
     def clear(self):
         raise NotImplementedError
