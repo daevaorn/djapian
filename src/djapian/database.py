@@ -1,8 +1,6 @@
 import os
 import xapian
 
-from django.conf import settings
-
 class Database(object):
     def __init__(self, path):
         self._path = path
