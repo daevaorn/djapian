@@ -352,10 +352,10 @@ class Indexer(object):
         if order_by is None or order_by[0] in (None, 'RELEVANCE'):
             enquire.set_sort_by_relevance()
         else:
-            ascending = True
+            sort_reversed = False
             order_by, relevance_first = order_by
             if order_by.startswith('-'):
-                ascending = False
+                sort_reversed = True
 
             if order_by[0] in '+-':
                 order_by = order_by[1:]
@@ -367,9 +367,9 @@ class Indexer(object):
                                  " because it doen't exist in index" % order_by)
 
             if relevance_first:
-                enquire.set_sort_by_relevance_then_value(valueno, ascending)
+                enquire.set_sort_by_relevance_then_value(valueno, sort_reversed)
             else:
-                enquire.set_sort_by_value_then_relevance(valueno, ascending)
+                enquire.set_sort_by_value_then_relevance(valueno, sort_reversed)
 
         if collapse_by:
             try:
