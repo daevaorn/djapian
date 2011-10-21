@@ -44,6 +44,14 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
         self.assert_(hasattr(result[0].instance, '_author_cache'))
         self.assertEqual(result[0].instance.author.name, 'Alex')
 
+    def test_prefetch_deleted(self):
+        pk_val = self.result[0].pk
+        result = self.result.prefetch()
+
+        Entry.objects.get(pk=pk_val).delete()
+
+        self.assertTrue(len([str(r) for r in result]) > 0)
+
 class AliasesTest(BaseTestCase):
     num_entries = 5
 
