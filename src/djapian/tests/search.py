@@ -100,6 +100,11 @@ class CompositeIndexerTest(BaseIndexerTest, BaseTestCase):
 
         self.assertEqual(len(results), 4) # 3 entries + 1 comment
 
+    def test_sets_not_empty(self):
+        results = self.indexer.search('entry')
+
+        self.assertTrue(len(results[0].tags) > 0)
+
 class OrderingTest(BaseIndexerTest, BaseTestCase):
     def setUp(self):
         super(OrderingTest, self).setUp()

@@ -230,8 +230,17 @@ class ResultSet(object):
             collapse_count = match.collapse_count or None
             collapse_key = match.collapse_key or None
 
-            tags = dict([(tag.prefix, tag.extract(doc))\
-                                for tag in self._indexer.tags])
+            # check if the current indexer is CompositeIndexer
+            if hasattr(self._indexer, '_indexers'):
+                # so we must collect tags from every indexer of the model
+                tags = []
+                for indexer in self._indexer._indexers:
+                    if indexer._model == model:
+                        tags.extend(indexer.tags)
+            else:
+                tags = self._indexer.tags
+            # get tags' values
+            tags = dict([(tag.prefix, tag.extract(doc)) for tag in tags])
 
             self._resultset_cache.append(
                 Hit(pk, model, percent, rank, weight, tags, collapse_count, collapse_key)
