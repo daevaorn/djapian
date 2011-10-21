@@ -110,8 +110,17 @@ class OrderingTest(BaseIndexerTest, BaseTestCase):
         entries.sort(key=lambda e: e.rating)
 
         self.assertEqual(
-            list([r.instance for r in self.result.order_by('-rating').prefetch()]),
+            list([r.instance for r in self.result.order_by('rating').prefetch()]),
             entries
+        )
+
+    def test_order_by_reversed(self):
+        entries = [e  for e in self.entries if e.is_active]
+        entries.sort(key=lambda e: e.rating)
+
+        self.assertEqual(
+            list([r.instance for r in self.result.order_by('-rating').prefetch()]),
+            entries[::-1]
         )
 
 class ResultSetTest(BaseIndexerTest, BaseTestCase):
