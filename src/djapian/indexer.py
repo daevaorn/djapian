@@ -389,12 +389,15 @@ class Indexer(object):
         if limit is None:
             limit = self.document_count()
 
-        return enquire.get_mset(
-            offset,
-            limit,
-            None,
-            decider
-        ), query, query_parser
+        for n in reversed(xrange(3)):
+            try:
+                mset = enquire.get_mset(offset, limit, None, decider)
+                break
+            except xapian.DatabaseModifiedError:
+                if not n:
+                    raise
+                database.reopen()
+        return mset, query, query_parser
 
     def _get_stem_language(self, obj=None):
         """
