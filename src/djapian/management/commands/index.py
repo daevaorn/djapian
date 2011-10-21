@@ -102,7 +102,7 @@ def update_changes(verbose, timeout, once, per_page, commit_each, app_models=Non
             for change in Change.objects.filter(content_type=ct, action='delete'):
                 for indexer in indexers:
                     indexer.delete(change.object_id)
-                    change.delete()
+                change.delete()
 
         # If using transactions and running Djapian as a daemon, transactions
         # need to be committed on each iteration, otherwise Djapian will not
