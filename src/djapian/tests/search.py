@@ -45,8 +45,8 @@ class IndexerSearchTextTest(BaseIndexerTest, BaseTestCase):
         self.assertEqual(result[0].instance.author.name, 'Alex')
 
     def test_prefetch_deleted(self):
-        pk_val = self.result[0].pk
         result = self.result.prefetch()
+        pk_val = self.result[0].pk
 
         Entry.objects.get(pk=pk_val).delete()
 

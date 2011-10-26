@@ -190,7 +190,13 @@ class ResultSet(object):
             instances = instances.in_bulk(pks)
 
             for hit in hits:
-                hit.instance = instances[hit.pk]
+                # check if the record has been deleted since the last Xapian index update
+                instance = instances.get(hit.pk, None)
+                if instance:
+                    hit.instance = instance
+
+        # filter results which may have become invalid during the search
+        self._resultset_cache = filter(lambda hit: hit._instance, self._resultset_cache)
 
     def _get_mset(self):
         if self._mset is None:
