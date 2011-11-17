@@ -12,6 +12,7 @@ from djapian.database import CompositeDatabase
 from djapian.resultset import ResultSet
 from djapian.utils.paging import paginate
 from djapian.utils.commiter import Commiter
+from djapian.utils.decorators import reopen_if_modified
 from djapian.utils import DEFAULT_WEIGHT, model_name
 
 import xapian
@@ -389,15 +390,9 @@ class Indexer(object):
         if limit is None:
             limit = self.document_count()
 
-        for n in reversed(xrange(3)):
-            try:
-                mset = enquire.get_mset(offset, limit, None, decider)
-                break
-            except xapian.DatabaseModifiedError:
-                if not n:
-                    raise
-                database.reopen()
-        return mset, query, query_parser
+        return reopen_if_modified(database)(
+            lambda: enquire.get_mset(offset, limit, None, decider)
+        )(), query, query_parser
 
     def _get_stem_language(self, obj=None):
         """
