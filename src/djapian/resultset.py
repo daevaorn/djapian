@@ -7,6 +7,7 @@ from django.db.models import get_model
 from django.utils.encoding import force_unicode
 
 from djapian import utils, decider
+from djapian.utils.decorators import retry_if_except
 
 class ResultSet(object):
     def __init__(self, indexer, query_str, offset=0, limit=None,
@@ -215,8 +216,10 @@ class ResultSet(object):
 
     def _fetch_results(self):
         if self._resultset_cache is None:
-            self._get_mset()
-            self._parse_results()
+            # self._parse_results() may raise DatabaseModifiedError exception,
+            # thus we have to repeat retrieving of the whole MSet again
+            retry_if_except(xapian.DatabaseModifiedError)(
+                lambda: (self._get_mset(), self._parse_results()))()
 
         return self._resultset_cache
 
