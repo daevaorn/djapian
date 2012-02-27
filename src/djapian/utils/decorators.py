@@ -17,7 +17,7 @@ def retry_if_except(errors, num_retry=4, cleanup_callback=None):
     return _wrap
 
 def reopen_if_modified(database, num_retry=3,
-                   errors=(xapian.DatabaseModifiedError,)):
-    return retry_if_except(xapian.DatabaseModifiedError,
+                   errors=xapian.DatabaseModifiedError):
+    return retry_if_except(errors,
                            num_retry=num_retry,
                            cleanup_callback=lambda: database.reopen())
