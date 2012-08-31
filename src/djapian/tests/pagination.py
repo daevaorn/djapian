@@ -21,7 +21,7 @@ class ResultSetPaginationTest(BaseTestCase):
 
         self.result = Entry.indexer.search("title:number")
 
-    def test_pagintion(self):
+    def test_pagination(self):
         paginator = Paginator(self.result, self.per_page)
 
         self.assertEqual(paginator.num_pages, self.num_pages)
