@@ -229,7 +229,7 @@ class Indexer(object):
             update_queue = documents
 
         commiter = Commiter.create(commit_each)(
-            lambda: database.begin_transaction(flush=True),
+            database.begin_transaction,
             database.commit_transaction,
             database.cancel_transaction
         )

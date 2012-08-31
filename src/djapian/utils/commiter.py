@@ -36,7 +36,7 @@ class Commiter(object):
             setattr(
                 _ConcreteCommiter,
                 '%s_%s' % (name, prefix),
-                lambda self: make_method(name)
+                make_method(name)
             )
 
         return _ConcreteCommiter
