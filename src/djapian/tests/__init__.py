@@ -7,3 +7,4 @@ from djapian.tests.filtering import *
 from djapian.tests.pickling import *
 from djapian.tests.collapse import *
 from djapian.tests.stem import *
+from djapian.tests.commiter import *
